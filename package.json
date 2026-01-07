@@ -51,7 +51,12 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.23.0",
     "@tetherto/wdk": "^1.0.0-beta.4",
+    "@tetherto/wdk-pricing-bitfinex-http": "^1.0.0-beta.1",
     "@tetherto/wdk-wallet-btc": "^1.0.0-beta.3",
     "@tetherto/wdk-wallet-evm": "^1.0.0-beta.4"
+  },
+  "devDependencies": {
+    "standard": "17.1.2",
+    "typescript": "^5.8.3"
   }
 }
