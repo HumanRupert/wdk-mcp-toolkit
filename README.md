@@ -15,7 +15,7 @@ For detailed documentation about the complete WDK ecosystem, visit [docs.wallet.
 - **MCP Server Extension**: Extends `McpServer` from [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) with all familiar APIs plus WDK-specific functionality
 - **Multi-Chain Support**: Register wallets for any blockchain supported by WDK wallet modules (EVM chains, Bitcoin, Solana, TON, TRON, and more)
 - **Built-in Tools**: Pre-built MCP tools for wallet operations, pricing data, and transaction history
-- **Fluent API**: Chainable configuration methods for clean, readable server setup
+- **Extensible & Modular**: Register only the tools you need, create custom tools, and organize functionality into reusable modules
 - **Secure by Design**: Automatic memory cleanup and secure key disposal
 
 ## ⚙️ Requirements
@@ -131,7 +131,11 @@ const fullAccessServer = new WdkMcpServer('full-access-server', '1.0.0')
   .registerTools(walletWriteTools)
 ```
 
-> **💡 Best Practice:** Register only the tools you need. Large tool sets increase context size, which can lead to slower responses, higher costs, and potential hallucinations where the AI invokes incorrect tools. If you only need to check balances, use `walletReadTools` instead of the full `walletTools` array.
+> **💡 Best Practice:** Register only the tools you need. Large tool sets increase context size, which can lead to slower responses, higher costs, and potential hallucinations where the AI invokes incorrect tools. If you only need to check balances, import and register just that tool:
+> ```javascript
+> import { getBalance } from '@tetherto/wdk-mcp-toolkit'
+> server.registerTools([getBalance])
+> ```
 
 ## 🔌 Enabling Capabilities
 
@@ -241,13 +245,6 @@ function getPortfolioValue (server) {
 
 // Register multiple tools at once
 server.registerTools([getAllTokenBalances, getPortfolioValue])
-
-// Or combine with built-in tools (but only include what you need!)
-server.registerTools([
-  ...walletReadTools,  // Only read tools, not the full walletTools
-  ...pricingTools,
-  getAllTokenBalances
-])
 ```
 
 This pattern allows you to:
@@ -516,24 +513,6 @@ await server.close()
 ### CHAINS
 
 Convenience constants for blockchain names that have pre-configured USDT token addresses. Using these constants triggers automatic token registration via `DEFAULT_TOKENS`.
-
-```javascript
-import { CHAINS } from '@tetherto/wdk-mcp-toolkit'
-
-CHAINS.ETHEREUM   // 'ethereum'
-CHAINS.POLYGON    // 'polygon'
-CHAINS.ARBITRUM   // 'arbitrum'
-CHAINS.OPTIMISM   // 'optimism'
-CHAINS.BASE       // 'base'
-CHAINS.AVALANCHE  // 'avalanche'
-CHAINS.BNB        // 'bnb'
-CHAINS.PLASMA     // 'plasma'
-CHAINS.BITCOIN    // 'bitcoin'
-CHAINS.SOLANA     // 'solana'
-CHAINS.SPARK      // 'spark'
-CHAINS.TON        // 'ton'
-CHAINS.TRON       // 'tron'
-```
 
 **Note:** You can register any blockchain name you want. `CHAINS` is purely for convenience. If you use a name not in `CHAINS`, simply register your tokens manually:
 
