@@ -1,7 +1,7 @@
 'use strict'
 
 import { z } from 'zod'
-import { INDEXER_BASE_URL, SUPPORTED_BLOCKCHAINS, SUPPORTED_TOKENS } from './constants.js'
+import { BLOCKCHAINS, TOKENS } from '@tetherto/wdk-indexer-http'
 
 export function getIndexerTokenBalance (server) {
   server.registerTool(
@@ -10,12 +10,12 @@ export function getIndexerTokenBalance (server) {
       title: 'Get Indexed Token Balance',
       description: `Get token balance for an address using the WDK Indexer API.
 
-This tool retrieves the current token balance for a specific address on a given blockchain via the Indexer API. This is useful for querying balances across multiple chains without needing a wallet connection.
+This tool retrieves the current token balance for a specific address on a given blockchain via the Indexer API. This is useful for querying balances for ANY address across multiple chains.
 
-Note: This queries the indexed balance which may have slight delay compared to real-time blockchain state. For real-time balances from your wallet, use the wallet's getTokenBalance tool instead.
+Note: This queries the indexed balance which may have slight delay compared to real-time blockchain state.
 
-Supported blockchains: ${SUPPORTED_BLOCKCHAINS.join(', ')}
-Supported tokens: ${SUPPORTED_TOKENS.join(', ')}
+Supported blockchains: ${BLOCKCHAINS.join(', ')}
+Supported tokens: ${TOKENS.join(', ')}
 
 Args:
   - blockchain (REQUIRED): The blockchain to query
@@ -24,31 +24,19 @@ Args:
 
 Returns:
   Text format: "Balance: {amount} {token} on {blockchain}"
-  
-  Structured output:
-  {
-    "tokenBalance": {
-      "blockchain": "ethereum",
-      "token": "usdt",
-      "amount": "1000000"
-    }
-  }
 
 Examples:
   - Use when: "What's the USDT balance of 0x... on ethereum?"
   - Use when: "Check XAUT balance for this address on polygon"
   - Use when: "How much BTC does address bc1... have?"
-  - Don't use when: You need your own wallet's real-time balance (use wallet getTokenBalance)
-
-Error Handling:
-  - Returns error if blockchain is not supported
-  - Returns error if token is not supported
-  - Returns error if address is invalid
-  - Returns error if API key is invalid (401)
-  - Returns error if rate limit exceeded (429)`,
+  - Use when: Querying balance of an external address (not the user's wallet)
+  
+  - Don't use when: User asks for THEIR OWN balance without specifying an address
+    → Use getBalance for native tokens (ETH, BTC, etc.)
+    → Use getTokenBalance for ERC20/tokens (USDT, USDC, etc.)`,
       inputSchema: z.object({
-        blockchain: z.enum(SUPPORTED_BLOCKCHAINS).describe('The blockchain to query'),
-        token: z.enum(SUPPORTED_TOKENS).describe('The token to query (usdt, xaut, btc)'),
+        blockchain: z.enum(BLOCKCHAINS).describe('The blockchain to query'),
+        token: z.enum(TOKENS).describe('The token to query (usdt, xaut, btc)'),
         address: z.string().min(1).describe('The wallet address to get balance for')
       }),
       outputSchema: z.object({
@@ -67,28 +55,7 @@ Error Handling:
     },
     async ({ blockchain, token, address }) => {
       try {
-        const url = `${INDEXER_BASE_URL}/api/v1/${blockchain}/${token}/${address}/token-balances`
-
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'x-api-key': server.indexer.apiKey,
-            Accept: 'application/json'
-          }
-        })
-
-        if (!response.ok) {
-          const errorBody = await response.text()
-          if (response.status === 401) {
-            throw new Error('Invalid API key')
-          }
-          if (response.status === 429) {
-            throw new Error('Rate limit exceeded. Try again later.')
-          }
-          throw new Error(`Indexer API error (${response.status}): ${errorBody}`)
-        }
-
-        const data = await response.json()
+        const data = await server.indexerClient.getTokenBalance(blockchain, token, address)
         const balance = data.tokenBalance?.amount || '0'
 
         return {

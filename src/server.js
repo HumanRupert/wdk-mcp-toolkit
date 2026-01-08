@@ -4,6 +4,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import WDK from '@tetherto/wdk'
 import { SwapProtocol, BridgeProtocol, LendingProtocol, FiatProtocol } from '@tetherto/wdk-wallet/protocols'
 import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http'
+import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
 
 /** @typedef {import('@tetherto/wdk').default} WDK */
 
@@ -156,7 +157,7 @@ export class WdkMcpServer extends McpServer {
       throw new Error('Indexer requires apiKey.')
     }
 
-    this.indexer = { apiKey: config.apiKey }
+    this.indexerClient = new WdkIndexerClient({ apiKey: config.apiKey })
     return this
   }
 

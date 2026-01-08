@@ -278,6 +278,66 @@ If a tool requires a capability that wasn't enabled, it will fail at runtime. Th
 - `pricingTools` require `usePricing()`
 - `indexerTools` require `useIndexer()`
 
+## 🖥️ Using with VS Code GitHub Copilot Chat
+
+You can use this MCP server with [VS Code GitHub Copilot Chat](https://code.visualstudio.com/docs/copilot/chat/mcp-servers).
+
+### Step 1: Clone the repository
+
+```bash
+git clone https://github.com/AlibudaLab/wdk-mcp-toolkit.git
+cd wdk-mcp-toolkit
+npm install
+```
+
+### Step 2: Configure VS Code
+
+Create `.vscode/mcp.json` in the project root:
+
+```json
+{
+  "servers": {
+    "wdk": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["examples/basic/index.js"],
+      "env": {
+        "WDK_SEED": "your wallet's seed phrase",
+        "WDK_INDEXER_API_KEY": "your indexer api key, you can obtain one here: https://docs.wallet.tether.io/tools/indexer-api/get-started"
+      }
+    }
+  }
+}
+```
+
+Open the file in VS Code and click the **Start** button that appears above the server configuration.
+
+### Step 3: Use in Copilot Chat
+
+1. Open GitHub Copilot Chat in VS Code
+2. Select **Agent** mode from the dropdown
+3. Click the **Tools** button to verify your MCP server tools are available
+4. Start chatting:
+
+```
+You: What's my ethereum address?
+Copilot: Your Ethereum address is 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+
+You: Check my ETH balance
+Copilot: Your ETH balance is 1.5 ETH
+
+You: What's the current price of BTC?
+Copilot: The current price of BTC is $98,450.00 USD
+
+You: How much USDT do I have on ethereum?
+Copilot: Your USDT balance on Ethereum is 1,000.00 USDT
+
+You: Send 1 USDT to vitalik.eth
+Copilot: I'll transfer 1 USDT to vitalik.eth (0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045).
+         [Requests approval via elicitation]
+         Transaction sent! Hash: 0xabc123...
+```
+
 ## 📚 API Reference
 
 ### Table of Contents
@@ -595,66 +655,6 @@ Pre-configured USDT token addresses for common chains. These are automatically r
 |------|-------------|
 | `getTokenTransfers` | Get token transfer history for an address |
 | `getIndexerTokenBalance` | Get token balance via indexer API |
-
-## 🖥️ Using with VS Code GitHub Copilot Chat
-
-You can use this MCP server with [VS Code GitHub Copilot Chat](https://code.visualstudio.com/docs/copilot/chat/mcp-servers).
-
-### Step 1: Clone the repository
-
-```bash
-git clone https://github.com/AlibudaLab/wdk-mcp-toolkit.git
-cd wdk-mcp-toolkit
-npm install
-```
-
-### Step 2: Configure VS Code
-
-Create `.vscode/mcp.json` in the project root:
-
-```json
-{
-  "servers": {
-    "wdk": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["examples/basic/index.js"],
-      "env": {
-        "WDK_SEED": "your wallet's seed phrase",
-        "WDK_INDEXER_API_KEY": "your indexer api key, you can obtain one here: https://docs.wallet.tether.io/tools/indexer-api/get-started"
-      }
-    }
-  }
-}
-```
-
-Open the file in VS Code and click the **Start** button that appears above the server configuration.
-
-### Step 3: Use in Copilot Chat
-
-1. Open GitHub Copilot Chat in VS Code
-2. Select **Agent** mode from the dropdown
-3. Click the **Tools** button to verify your MCP server tools are available
-4. Start chatting:
-
-```
-You: What's my ethereum address?
-Copilot: Your Ethereum address is 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7
-
-You: Check my ETH balance
-Copilot: Your ETH balance is 1.5 ETH
-
-You: What's the current price of BTC?
-Copilot: The current price of BTC is $98,450.00 USD
-
-You: How much USDT do I have on ethereum?
-Copilot: Your USDT balance on Ethereum is 1,000.00 USDT
-
-You: Send 1 USDT to vitalik.eth
-Copilot: I'll transfer 1 USDT to vitalik.eth (0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045).
-         [Requests approval via elicitation]
-         Transaction sent! Hash: 0xabc123...
-```
 
 ## 🔒 Security Considerations
 
