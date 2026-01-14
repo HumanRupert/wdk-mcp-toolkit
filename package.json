@@ -13,9 +13,9 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/tetherto/wdk-mcp.git"
+    "url": "git://github.com/tetherto/wdk-mcp-toolkit.git"
   },
-  "main": "src/index.js",
+  "main": "index.js",
   "type": "module",
   "types": "./types",
   "scripts": {
@@ -29,6 +29,7 @@
       "default": "./src/index.js"
     },
     "./tools/*": {
+      "types": "./types/tools/*.d.ts",
       "default": "./src/tools/*.js"
     },
     "./package": {
