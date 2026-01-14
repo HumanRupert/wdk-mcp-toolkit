@@ -1,10 +1,23 @@
+// Copyright 2025 Tether Operations Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 'use strict'
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import WDK from '@tetherto/wdk'
 import { SwapProtocol, BridgeProtocol, LendingProtocol, FiatProtocol } from '@tetherto/wdk-wallet/protocols'
 import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http'
-import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
+import { WdkIndexerClient, WdkIndexerConfig } from '@tetherto/wdk-indexer-http'
 
 /** @typedef {import('@tetherto/wdk').default} WDK */
 
@@ -16,10 +29,6 @@ import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
  * @property {number} decimals - Number of decimal places for the token.
  */
 
-/**
- * @typedef {Object} IndexerConfig
- * @property {string} apiKey - WDK Indexer API key.
- */
 
 /**
  * @typedef {Object} WdkConfig
@@ -40,6 +49,12 @@ import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
 
 /** @typedef {(server: WdkMcpServer) => void} ToolFunction */
 
+/**
+ * Supported blockchain identifiers.
+ *
+ * @readonly
+ * @enum {string}
+ */
 export const CHAINS = {
   ETHEREUM: 'ethereum',
   POLYGON: 'polygon',
@@ -56,6 +71,12 @@ export const CHAINS = {
   TRON: 'tron'
 }
 
+/**
+ * Default token configurations per blockchain.
+ *
+ * @readonly
+ * @type {Object<string, Object<string, TokenInfo>>}
+ */
 export const DEFAULT_TOKENS = {
   [CHAINS.ETHEREUM]: {
     USDT: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 },
@@ -103,28 +124,85 @@ export class WdkMcpServer extends McpServer {
   constructor (name, version) {
     super({ name, version })
 
-    /** @type {WDK | null} */
-    this.wdk = null
+    /**
+     * The Wallet Development Kit instance for blockchain operations.
+     *
+     * @private
+     * @type {WDK | null}
+     */
+    this._wdk = null
 
-    /** @type {IndexerConfig | null} */
-    this.indexer = null
+    /**
+     * HTTP client for querying blockchain indexer data (balances, transfers).
+     *
+     * @private
+     * @type {WdkIndexerClient | null}
+     */
+    this._indexerClient = null
 
-    /** @type {BitfinexPricingClient | null} */
-    this.pricingClient = null
+    /**
+     * HTTP client for fetching cryptocurrency pricing data from Bitfinex.
+     *
+     * @private
+     * @type {BitfinexPricingClient | null}
+     */
+    this._pricingClient = null
 
-    /** @type {Set<string>} */
-    this.chains = new Set()
+    /**
+     * Set of blockchain identifiers that have been configured.
+     *
+     * @private
+     * @type {Set<string>}
+     */
+    this._chains = new Set()
 
-    /** @type {TokenRegistry} */
-    this.tokenRegistry = new Map()
+    /**
+     * Registry mapping chains to their token configurations (address, decimals).
+     *
+     * @private
+     * @type {TokenRegistry}
+     */
+    this._tokenRegistry = new Map()
 
-    /** @type {ProtocolRegistry} */
+    /**
+     * Registry of DeFi protocols (swap, bridge, lending, fiat) by chain.
+     *
+     * @private
+     * @type {ProtocolRegistry}
+     */
     this._protocols = {
       swap: new Map(),
       bridge: new Map(),
       lending: new Map(),
       fiat: new Map()
     }
+  }
+
+  /**
+   * The WDK instance.
+   *
+   * @type {WDK | null}
+   */
+  get wdk () {
+    return this._wdk
+  }
+
+  /**
+   * The indexer client.
+   *
+   * @type {WdkIndexerClient | null}
+   */
+  get indexerClient () {
+    return this._indexerClient
+  }
+
+  /**
+   * The pricing client.
+   *
+   * @type {BitfinexPricingClient | null}
+   */
+  get pricingClient () {
+    return this._pricingClient
   }
 
   /**
@@ -141,14 +219,14 @@ export class WdkMcpServer extends McpServer {
       throw new Error('WDK requires seed. Provide { seed } or set WDK_SEED env variable.')
     }
 
-    this.wdk = new WDK(seedPhrase)
+    this._wdk = new WDK(seedPhrase)
     return this
   }
 
   /**
    * Enables Indexer for transaction history and UTXO queries.
    *
-   * @param {IndexerConfig} config - The configuration.
+   * @param {Pick<WdkIndexerConfig, 'apiKey'>} config - The configuration.
    * @returns {WdkMcpServer} The server instance.
    * @throws {Error} If no apiKey is provided.
    */
@@ -157,7 +235,7 @@ export class WdkMcpServer extends McpServer {
       throw new Error('Indexer requires apiKey.')
     }
 
-    this.indexerClient = new WdkIndexerClient({ apiKey: config.apiKey })
+    this._indexerClient = new WdkIndexerClient({ apiKey: config.apiKey })
     return this
   }
 
@@ -167,7 +245,7 @@ export class WdkMcpServer extends McpServer {
    * @returns {WdkMcpServer} The server instance.
    */
   usePricing () {
-    this.pricingClient = new BitfinexPricingClient()
+    this._pricingClient = new BitfinexPricingClient()
     return this
   }
 
@@ -177,7 +255,7 @@ export class WdkMcpServer extends McpServer {
    * @returns {string[]} The blockchain names.
    */
   getChains () {
-    return [...this.chains]
+    return [...this._chains]
   }
 
   /**
@@ -189,11 +267,11 @@ export class WdkMcpServer extends McpServer {
    * @returns {WdkMcpServer} The server instance.
    */
   registerToken (chain, symbol, token) {
-    if (!this.tokenRegistry.has(chain)) {
-      this.tokenRegistry.set(chain, new Map())
+    if (!this._tokenRegistry.has(chain)) {
+      this._tokenRegistry.set(chain, new Map())
     }
 
-    this.tokenRegistry.get(chain).set(symbol.toUpperCase(), token)
+    this._tokenRegistry.get(chain).set(symbol.toUpperCase(), token)
     return this
   }
 
@@ -205,8 +283,7 @@ export class WdkMcpServer extends McpServer {
    * @returns {TokenInfo | undefined} The token info.
    */
   getTokenInfo (chain, symbol) {
-    const tokens = this.tokenRegistry.get(chain)
-    return tokens?.get(symbol.toUpperCase())
+    return this._tokenRegistry.get(chain)?.get(symbol.toUpperCase())
   }
 
   /**
@@ -216,7 +293,7 @@ export class WdkMcpServer extends McpServer {
    * @returns {string[]} The token symbols.
    */
   getRegisteredTokens (chain) {
-    const tokens = this.tokenRegistry.get(chain)
+    const tokens = this._tokenRegistry.get(chain)
     return tokens ? [...tokens.keys()] : []
   }
 
@@ -245,12 +322,12 @@ export class WdkMcpServer extends McpServer {
    * @throws {Error} If useWdk() has not been called.
    */
   registerWallet (blockchain, WalletManager, config) {
-    if (!this.wdk) {
+    if (!this._wdk) {
       throw new Error('Call useWdk({ seed }) before registerWallet().')
     }
 
-    this.wdk.registerWallet(blockchain, WalletManager, config)
-    this.chains.add(blockchain)
+    this._wdk.registerWallet(blockchain, WalletManager, config)
+    this._chains.add(blockchain)
 
     if (DEFAULT_TOKENS[blockchain]) {
       for (const [symbol, token] of Object.entries(DEFAULT_TOKENS[blockchain])) {
@@ -274,7 +351,7 @@ export class WdkMcpServer extends McpServer {
    * @throws {Error} If unknown protocol type.
    */
   registerProtocol (chain, label, Protocol, config) {
-    if (!this.wdk) {
+    if (!this._wdk) {
       throw new Error('Call useWdk({ seed }) before registerProtocol().')
     }
 
@@ -296,7 +373,7 @@ export class WdkMcpServer extends McpServer {
     }
     registry.get(chain).add(label)
 
-    this.wdk.registerProtocol(chain, label, Protocol, config)
+    this._wdk.registerProtocol(chain, label, Protocol, config)
 
     return this
   }
@@ -387,8 +464,8 @@ export class WdkMcpServer extends McpServer {
    * @returns {Promise<void>}
    */
   async close () {
-    if (this.wdk && typeof this.wdk.dispose === 'function') {
-      this.wdk.dispose()
+    if (this._wdk && typeof this._wdk.dispose === 'function') {
+      this._wdk.dispose()
     }
 
     await super.close()
