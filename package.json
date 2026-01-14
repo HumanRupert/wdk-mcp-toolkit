@@ -15,7 +15,7 @@
     "type": "git",
     "url": "git://github.com/tetherto/wdk-mcp.git"
   },
-  "main": "src/index.js",
+  "main": "index.js",
   "type": "module",
   "types": "./types",
   "scripts": {
