@@ -19,9 +19,6 @@ import { SwapProtocol, BridgeProtocol, LendingProtocol, FiatProtocol } from '@te
 import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http'
 import { WdkIndexerClient, WdkIndexerConfig } from '@tetherto/wdk-indexer-http'
 
-/** @typedef {import('@tetherto/wdk').default} WDK */
-
-/** @typedef {import('@tetherto/wdk-pricing-bitfinex-http').BitfinexPricingClient} BitfinexPricingClient */
 
 /**
  * @typedef {Object} TokenInfo

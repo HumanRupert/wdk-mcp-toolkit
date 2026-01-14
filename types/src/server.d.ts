@@ -28,7 +28,7 @@ export const DEFAULT_TOKENS: {
         [x: string]: TokenInfo;
     };
 };
-export class WdkMcpServer {
+export class WdkMcpServer extends McpServer {
     /**
      * Creates a new MCP server for Tether Wallet Development Kit.
      *
@@ -231,15 +231,7 @@ export class WdkMcpServer {
      * @returns {string[]} The protocol labels.
      */
     getFiatProtocols(chain: string): string[];
-    /**
-     * Closes the server and securely disposes the WDK instance.
-     *
-     * @returns {Promise<void>}
-     */
-    close(): Promise<void>;
 }
-export type WDK = any;
-export type BitfinexPricingClient = any;
 export type TokenInfo = {
     /**
      * - Token contract address.
@@ -277,3 +269,12 @@ export type ProtocolRegistry = {
 export type TokenMap = Map<string, TokenInfo>;
 export type TokenRegistry = Map<string, TokenMap>;
 export type ToolFunction = (server: WdkMcpServer) => void;
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import WDK from '@tetherto/wdk';
+import { WdkIndexerClient } from '@tetherto/wdk-indexer-http';
+import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http';
+import { WdkIndexerConfig } from '@tetherto/wdk-indexer-http';
+import { SwapProtocol } from '@tetherto/wdk-wallet/protocols';
+import { BridgeProtocol } from '@tetherto/wdk-wallet/protocols';
+import { LendingProtocol } from '@tetherto/wdk-wallet/protocols';
+import { FiatProtocol } from '@tetherto/wdk-wallet/protocols';
