@@ -16,10 +16,28 @@
 import { quoteSwap } from './quoteSwap.js'
 import { swap } from './swap.js'
 
-export const swapTools = [quoteSwap, swap]
+/**
+ * Read-only swap tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const SWAP_READ_TOOLS = [quoteSwap]
 
-export const swapReadTools = [quoteSwap]
+/**
+ * Write swap tools (require confirmation).
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const SWAP_WRITE_TOOLS = [swap]
 
-export const swapWriteTools = [swap]
+/**
+ * All swap tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const SWAP_TOOLS = [...SWAP_READ_TOOLS, ...SWAP_WRITE_TOOLS]
 
 export { quoteSwap, swap }

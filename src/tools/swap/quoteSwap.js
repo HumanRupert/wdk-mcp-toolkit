@@ -15,6 +15,12 @@
 
 import { z } from 'zod'
 
+/**
+ * Registers the 'quoteSwap' tool for quoting token swaps.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function quoteSwap (server) {
   const swapChains = server.getSwapChains()
 

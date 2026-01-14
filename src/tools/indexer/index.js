@@ -16,7 +16,13 @@
 import { getTokenTransfers } from './getTokenTransfers.js'
 import { getIndexerTokenBalance } from './getTokenBalance.js'
 
-export const indexerTools = [
+/**
+ * All indexer tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const INDEXER_TOOLS = [
   getTokenTransfers,
   getIndexerTokenBalance
 ]

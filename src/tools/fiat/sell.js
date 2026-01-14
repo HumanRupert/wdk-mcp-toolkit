@@ -15,6 +15,12 @@
 
 import { z } from 'zod'
 
+/**
+ * Registers the 'sell' tool for selling crypto for fiat currency.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function sell (server) {
   const fiatChains = server.getFiatChains()
 

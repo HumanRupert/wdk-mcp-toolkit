@@ -16,10 +16,28 @@
 import { quoteBridge } from './quoteBridge.js'
 import { bridge } from './bridge.js'
 
-export const bridgeTools = [quoteBridge, bridge]
+/**
+ * Read-only bridge tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const BRIDGE_READ_TOOLS = [quoteBridge]
 
-export const bridgeReadTools = [quoteBridge]
+/**
+ * Write bridge tools (require confirmation).
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const BRIDGE_WRITE_TOOLS = [bridge]
 
-export const bridgeWriteTools = [bridge]
+/**
+ * All bridge tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const BRIDGE_TOOLS = [...BRIDGE_READ_TOOLS, ...BRIDGE_WRITE_TOOLS]
 
 export { quoteBridge, bridge }

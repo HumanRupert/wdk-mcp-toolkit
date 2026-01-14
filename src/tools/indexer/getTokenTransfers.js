@@ -16,6 +16,12 @@
 import { z } from 'zod'
 import { BLOCKCHAINS, TOKENS } from '@tetherto/wdk-indexer-http'
 
+/**
+ * Registers the 'getTokenTransfers' tool for querying token transfer history.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function getTokenTransfers (server) {
   server.registerTool(
     'getTokenTransfers',

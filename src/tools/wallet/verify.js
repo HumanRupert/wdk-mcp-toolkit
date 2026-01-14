@@ -15,6 +15,12 @@
 
 import { z } from 'zod'
 
+/**
+ * Registers the 'verify' tool for verifying message signatures.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function verify (server) {
   const chains = server.getChains()
 

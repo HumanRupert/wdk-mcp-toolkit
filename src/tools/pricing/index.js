@@ -16,7 +16,13 @@
 import { getCurrentPrice } from './getCurrentPrice.js'
 import { getHistoricalPrice } from './getHistoricalPrice.js'
 
-export const pricingTools = [
+/**
+ * All pricing tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const PRICING_TOOLS = [
   getCurrentPrice,
   getHistoricalPrice
 ]

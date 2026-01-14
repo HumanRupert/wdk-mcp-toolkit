@@ -22,29 +22,41 @@ import { borrow } from './borrow.js'
 import { quoteRepay } from './quoteRepay.js'
 import { repay } from './repay.js'
 
-export const lendingTools = [
-  quoteSupply,
-  supply,
-  quoteWithdraw,
-  withdraw,
-  quoteBorrow,
-  borrow,
-  quoteRepay,
-  repay
-]
-
-export const lendingReadTools = [
+/**
+ * Read-only lending tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const LENDING_READ_TOOLS = [
   quoteSupply,
   quoteWithdraw,
   quoteBorrow,
   quoteRepay
 ]
 
-export const lendingWriteTools = [
+/**
+ * Write lending tools (require confirmation).
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const LENDING_WRITE_TOOLS = [
   supply,
   withdraw,
   borrow,
   repay
+]
+
+/**
+ * All lending tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const LENDING_TOOLS = [
+  ...LENDING_READ_TOOLS,
+  ...LENDING_WRITE_TOOLS
 ]
 
 export { quoteSupply, supply, quoteWithdraw, withdraw, quoteBorrow, borrow, quoteRepay, repay }

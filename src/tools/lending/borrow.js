@@ -15,6 +15,12 @@
 
 import { z } from 'zod'
 
+/**
+ * Registers the 'borrow' tool for borrowing from lending pools.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function borrow (server) {
   const lendingChains = server.getLendingChains()
 

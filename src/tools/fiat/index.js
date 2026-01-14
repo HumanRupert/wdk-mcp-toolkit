@@ -22,18 +22,13 @@ import { getSupportedCryptoAssets } from './getSupportedCryptoAssets.js'
 import { getSupportedFiatCurrencies } from './getSupportedFiatCurrencies.js'
 import { getSupportedCountries } from './getSupportedCountries.js'
 
-export const fiatTools = [
-  quoteBuy,
-  buy,
-  quoteSell,
-  sell,
-  getTransactionDetail,
-  getSupportedCryptoAssets,
-  getSupportedFiatCurrencies,
-  getSupportedCountries
-]
-
-export const fiatReadTools = [
+/**
+ * Read-only fiat tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const FIAT_READ_TOOLS = [
   quoteBuy,
   quoteSell,
   getTransactionDetail,
@@ -42,9 +37,26 @@ export const fiatReadTools = [
   getSupportedCountries
 ]
 
-export const fiatWriteTools = [
+/**
+ * Write fiat tools (require confirmation).
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const FIAT_WRITE_TOOLS = [
   buy,
   sell
+]
+
+/**
+ * All fiat tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const FIAT_TOOLS = [
+  ...FIAT_READ_TOOLS,
+  ...FIAT_WRITE_TOOLS
 ]
 
 export { quoteBuy, buy, quoteSell, sell, getTransactionDetail, getSupportedCryptoAssets, getSupportedFiatCurrencies, getSupportedCountries }

@@ -25,7 +25,13 @@ import { transfer } from './transfer.js'
 import { sign } from './sign.js'
 import { verify } from './verify.js'
 
-export const walletReadTools = [
+/**
+ * Read-only wallet tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const WALLET_READ_TOOLS = [
   getAddress,
   getBalance,
   getFeeRates,
@@ -35,16 +41,28 @@ export const walletReadTools = [
   quoteTransfer
 ]
 
-export const walletWriteTools = [
+/**
+ * Write wallet tools (require confirmation).
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const WALLET_WRITE_TOOLS = [
   sendTransaction,
   transfer,
   sign,
   verify
 ]
 
-export const walletTools = [
-  ...walletReadTools,
-  ...walletWriteTools
+/**
+ * All wallet tools.
+ *
+ * @readonly
+ * @type {import('../../server.js').ToolFunction[]}
+ */
+export const WALLET_TOOLS = [
+  ...WALLET_READ_TOOLS,
+  ...WALLET_WRITE_TOOLS
 ]
 
 export {

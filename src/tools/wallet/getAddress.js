@@ -15,6 +15,12 @@
 
 import { z } from 'zod'
 
+/**
+ * Registers the 'getAddress' tool for retrieving wallet addresses.
+ *
+ * @param {import('../../server.js').WdkMcpServer} server - The MCP server instance.
+ * @returns {void}
+ */
 export function getAddress (server) {
   const chains = server.getChains()
 
