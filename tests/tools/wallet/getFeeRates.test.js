@@ -51,7 +51,7 @@ describe('getFeeRates', () => {
     })
 
     describe('result formatting', () => {
-      test('should return fee rates with bigint converted to string', async () => {
+      test('should return complete response with fee rates as strings', async () => {
         server.wdk.getFeeRates.mockResolvedValue({
           normal: 10000n,
           fast: 20000n
@@ -59,20 +59,13 @@ describe('getFeeRates', () => {
 
         const result = await handler({ chain: 'bitcoin' })
 
-        expect(result.structuredContent.normal).toBe('10000')
-        expect(result.structuredContent.fast).toBe('20000')
-      })
-
-      test('should return text content with JSON', async () => {
-        server.wdk.getFeeRates.mockResolvedValue({
-          normal: 10000n,
-          fast: 20000n
-        })
-
-        const result = await handler({ chain: 'bitcoin' })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
         expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toContain('10000')
+        expect(result.structuredContent).toEqual({
+          normal: '10000',
+          fast: '20000'
+        })
       })
     })
 
@@ -83,7 +76,10 @@ describe('getFeeRates', () => {
         const result = await handler({ chain: 'bitcoin' })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error getting fee rates on bitcoin: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

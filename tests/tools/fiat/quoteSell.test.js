@@ -20,6 +20,15 @@ describe('quoteSell', () => {
     }
   })
 
+  function setupMocks (quote = { cryptoAmount: 1000000000000000000n, fiatAmount: 345000n, fee: 1725n, rate: '3500.00' }) {
+    const quoteSellMock = jest.fn().mockResolvedValue(quote)
+    const accountMock = {
+      getFiatProtocol: jest.fn().mockReturnValue({ quoteSell: quoteSellMock })
+    }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { quoteSellMock, accountMock }
+  }
+
   test('should not register tool if no fiat chains available', () => {
     server.getFiatChains.mockReturnValue([])
 
@@ -59,25 +68,13 @@ describe('quoteSell', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const quoteSellMock = jest.fn().mockResolvedValue({
-          cryptoAmount: 1000000000000000000n,
-          fiatAmount: 345000n,
-          fee: 1725n,
-          rate: '3500.00'
-        })
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            quoteSell: quoteSellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -90,22 +87,7 @@ describe('quoteSell', () => {
       })
 
       test('should call getFiatProtocol with first protocol label', async () => {
-        const quoteSellMock = jest.fn().mockResolvedValue({
-          cryptoAmount: 1000000000000000000n,
-          fiatAmount: 345000n,
-          fee: 1725n,
-          rate: '3500.00'
-        })
-
-        const getFiatProtocolMock = jest.fn().mockReturnValue({
-          quoteSell: quoteSellMock
-        })
-
-        const accountMock = {
-          getFiatProtocol: getFiatProtocolMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { accountMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -114,24 +96,11 @@ describe('quoteSell', () => {
           cryptoAmount: '1000000000000000000'
         })
 
-        expect(getFiatProtocolMock).toHaveBeenCalledWith('moonpay')
+        expect(accountMock.getFiatProtocol).toHaveBeenCalledWith('moonpay')
       })
 
       test('should call quoteSell with options', async () => {
-        const quoteSellMock = jest.fn().mockResolvedValue({
-          cryptoAmount: 1000000000000000000n,
-          fiatAmount: 345000n,
-          fee: 1725n,
-          rate: '3500.00'
-        })
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            quoteSell: quoteSellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { quoteSellMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -149,21 +118,13 @@ describe('quoteSell', () => {
     })
 
     describe('result formatting', () => {
-      test('should return quote in structured content', async () => {
-        const quoteSellMock = jest.fn().mockResolvedValue({
+      test('should return complete response with quote', async () => {
+        setupMocks({
           cryptoAmount: 1000000000000000000n,
           fiatAmount: 345000n,
           fee: 1725n,
           rate: '3500.00'
         })
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            quoteSell: quoteSellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
 
         const result = await handler({
           chain: 'ethereum',
@@ -172,40 +133,18 @@ describe('quoteSell', () => {
           cryptoAmount: '1000000000000000000'
         })
 
-        expect(result.structuredContent.protocol).toBe('moonpay')
-        expect(result.structuredContent.cryptoAsset).toBe('eth')
-        expect(result.structuredContent.fiatCurrency).toBe('USD')
-        expect(result.structuredContent.cryptoAmount).toBe('1000000000000000000')
-        expect(result.structuredContent.fiatAmount).toBe('345000')
-        expect(result.structuredContent.fee).toBe('1725')
-        expect(result.structuredContent.rate).toBe('3500.00')
-      })
-
-      test('should return text content with JSON', async () => {
-        const quoteSellMock = jest.fn().mockResolvedValue({
-          cryptoAmount: 1000000000000000000n,
-          fiatAmount: 345000n,
-          fee: 1725n,
-          rate: '3500.00'
-        })
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            quoteSell: quoteSellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          cryptoAsset: 'eth',
-          fiatCurrency: 'USD',
-          cryptoAmount: '1000000000000000000'
-        })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
         expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toContain('moonpay')
+        expect(result.structuredContent).toEqual({
+          protocol: 'moonpay',
+          cryptoAsset: 'eth',
+          fiatCurrency: 'USD',
+          cryptoAmount: '1000000000000000000',
+          fiatAmount: '345000',
+          fee: '1725',
+          rate: '3500.00'
+        })
       })
     })
 
@@ -221,7 +160,10 @@ describe('quoteSell', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error quoting sell: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

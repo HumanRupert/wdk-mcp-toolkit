@@ -19,6 +19,13 @@ describe('sign', () => {
     }
   })
 
+  function setupMocks (signature = '0xsignature123abc') {
+    const signMock = jest.fn().mockResolvedValue(signature)
+    const accountMock = { sign: signMock }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { signMock, accountMock }
+  }
+
   test('should register tool with name sign', () => {
     sign(server)
 
@@ -39,95 +46,51 @@ describe('sign', () => {
 
     describe('validation', () => {
       test('should return error if message is empty', async () => {
-        const result = await handler({
-          chain: 'ethereum',
-          message: ''
-        })
+        const result = await handler({ chain: 'ethereum', message: '' })
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toContain('Message cannot be empty')
+        expect(result.structuredContent).toBeUndefined()
       })
 
       test('should return error if message is whitespace', async () => {
-        const result = await handler({
-          chain: 'ethereum',
-          message: '   '
-        })
+        const result = await handler({ chain: 'ethereum', message: '   ' })
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toContain('Message cannot be empty')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const signMock = jest.fn().mockResolvedValue('0xsignature123')
+        setupMocks()
 
-        const accountMock = {
-          sign: signMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          message: 'Hello World'
-        })
+        await handler({ chain: 'ethereum', message: 'Hello World' })
 
         expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
       })
 
       test('should call sign with message', async () => {
-        const signMock = jest.fn().mockResolvedValue('0xsignature123')
+        const { signMock } = setupMocks()
 
-        const accountMock = {
-          sign: signMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          message: 'Hello World'
-        })
+        await handler({ chain: 'ethereum', message: 'Hello World' })
 
         expect(signMock).toHaveBeenCalledWith('Hello World')
       })
     })
 
     describe('result formatting', () => {
-      test('should return signature on success', async () => {
-        const signMock = jest.fn().mockResolvedValue('0xsignature123abc')
+      test('should return complete response with signature', async () => {
+        setupMocks('0xsignature123abc')
 
-        const accountMock = {
-          sign: signMock
-        }
+        const result = await handler({ chain: 'ethereum', message: 'Hello World' })
 
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          message: 'Hello World'
-        })
-
-        expect(result.structuredContent.signature).toBe('0xsignature123abc')
-      })
-
-      test('should return text content with signature', async () => {
-        const signMock = jest.fn().mockResolvedValue('0xsignature123')
-
-        const accountMock = {
-          sign: signMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          message: 'Hello World'
-        })
-
-        expect(result.content[0].text).toBe('Message signed. Signature: 0xsignature123')
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
+        expect(result.content[0].text).toBe('Message signed. Signature: 0xsignature123abc')
+        expect(result.structuredContent).toEqual({ signature: '0xsignature123abc' })
       })
     })
 
@@ -135,13 +98,13 @@ describe('sign', () => {
       test('should return error with message on exception', async () => {
         server.wdk.getAccount.mockRejectedValue(new Error('Wallet not available'))
 
-        const result = await handler({
-          chain: 'ethereum',
-          message: 'Hello World'
-        })
+        const result = await handler({ chain: 'ethereum', message: 'Hello World' })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error signing message on ethereum: Wallet not available')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

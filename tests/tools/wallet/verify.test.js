@@ -19,6 +19,13 @@ describe('verify', () => {
     }
   })
 
+  function setupMocks (valid = true) {
+    const verifyMock = jest.fn().mockResolvedValue(valid)
+    const accountMock = { verify: verifyMock }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { verifyMock, accountMock }
+  }
+
   test('should register tool with name verify', () => {
     verify(server)
 
@@ -39,13 +46,7 @@ describe('verify', () => {
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(true)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -57,13 +58,7 @@ describe('verify', () => {
       })
 
       test('should call verify with message and signature', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(true)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { verifyMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -76,14 +71,8 @@ describe('verify', () => {
     })
 
     describe('result formatting', () => {
-      test('should return valid true when signature is valid', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(true)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should return complete response when signature is valid', async () => {
+        setupMocks(true)
 
         const result = await handler({
           chain: 'ethereum',
@@ -91,53 +80,15 @@ describe('verify', () => {
           signature: '0xsignature123'
         })
 
-        expect(result.structuredContent.valid).toBe(true)
-      })
-
-      test('should return valid false when signature is invalid', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(false)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          message: 'Hello World',
-          signature: '0xinvalidsig'
-        })
-
-        expect(result.structuredContent.valid).toBe(false)
-      })
-
-      test('should return text content for valid signature', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(true)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          message: 'Hello World',
-          signature: '0xsignature123'
-        })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Signature is valid: true')
+        expect(result.structuredContent).toEqual({ valid: true })
       })
 
-      test('should return text content for invalid signature', async () => {
-        const verifyMock = jest.fn().mockResolvedValue(false)
-
-        const accountMock = {
-          verify: verifyMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should return complete response when signature is invalid', async () => {
+        setupMocks(false)
 
         const result = await handler({
           chain: 'ethereum',
@@ -145,7 +96,11 @@ describe('verify', () => {
           signature: '0xinvalidsig'
         })
 
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Signature is valid: false')
+        expect(result.structuredContent).toEqual({ valid: false })
       })
     })
 
@@ -160,7 +115,10 @@ describe('verify', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error verifying signature on ethereum: Wallet not available')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

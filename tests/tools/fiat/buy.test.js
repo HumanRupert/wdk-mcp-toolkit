@@ -20,6 +20,16 @@ describe('buy', () => {
     }
   })
 
+  function setupMocks (buyUrl = 'https://buy.moonpay.com/abc123') {
+    const buyMock = jest.fn().mockResolvedValue({ buyUrl })
+    const accountMock = {
+      getAddress: jest.fn().mockResolvedValue('0x123'),
+      getFiatProtocol: jest.fn().mockReturnValue({ buy: buyMock })
+    }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { buyMock, accountMock }
+  }
+
   test('should not register tool if no fiat chains available', () => {
     server.getFiatChains.mockReturnValue([])
 
@@ -60,23 +70,13 @@ describe('buy', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -90,20 +90,7 @@ describe('buy', () => {
       })
 
       test('should call getFiatProtocol with first protocol label', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const getFiatProtocolMock = jest.fn().mockReturnValue({
-          buy: buyMock
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: getFiatProtocolMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { accountMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -113,22 +100,11 @@ describe('buy', () => {
           amountType: 'fiat'
         })
 
-        expect(getFiatProtocolMock).toHaveBeenCalledWith('moonpay')
+        expect(accountMock.getFiatProtocol).toHaveBeenCalledWith('moonpay')
       })
 
       test('should call buy with fiatAmount when amountType is fiat', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { buyMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -147,18 +123,7 @@ describe('buy', () => {
       })
 
       test('should call buy with cryptoAmount when amountType is crypto', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { buyMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -177,18 +142,7 @@ describe('buy', () => {
       })
 
       test('should use provided recipient if given', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { buyMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -200,27 +154,14 @@ describe('buy', () => {
         })
 
         expect(buyMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            recipient: '0x456'
-          })
+          expect.objectContaining({ recipient: '0x456' })
         )
       })
     })
 
     describe('result formatting', () => {
-      test('should return buyUrl on success', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should return complete response on success', async () => {
+        setupMocks('https://buy.moonpay.com/abc123')
 
         const result = await handler({
           chain: 'ethereum',
@@ -230,33 +171,14 @@ describe('buy', () => {
           amountType: 'fiat'
         })
 
-        expect(result.structuredContent.buyUrl).toBe('https://buy.moonpay.com/abc123')
-        expect(result.structuredContent.protocol).toBe('moonpay')
-      })
-
-      test('should return text with URL', async () => {
-        const buyMock = jest.fn().mockResolvedValue({
-          buyUrl: 'https://buy.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            buy: buyMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          cryptoAsset: 'eth',
-          fiatCurrency: 'USD',
-          amount: '100',
-          amountType: 'fiat'
-        })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toContain('https://buy.moonpay.com/abc123')
+        expect(result.structuredContent).toEqual({
+          buyUrl: 'https://buy.moonpay.com/abc123',
+          protocol: 'moonpay'
+        })
       })
     })
 
@@ -273,7 +195,10 @@ describe('buy', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error generating buy URL: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

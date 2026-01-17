@@ -22,6 +22,18 @@ describe('sendTransaction', () => {
     }
   })
 
+  function setupMocks (overrides = {}) {
+    const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n, ...overrides.quote })
+    const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc123', fee: 5000n, ...overrides.send })
+    const accountMock = {
+      quoteSendTransaction: quoteSendTransactionMock,
+      sendTransaction: sendTransactionMock
+    }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    server.server.elicitInput.mockResolvedValue(overrides.elicit ?? { action: 'accept', content: { confirmed: true } })
+    return { quoteSendTransactionMock, sendTransactionMock, accountMock }
+  }
+
   test('should register tool with name sendTransaction', () => {
     sendTransaction(server)
 
@@ -50,6 +62,7 @@ describe('sendTransaction', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toContain('Amount must be greater than zero')
+        expect(result.structuredContent).toBeUndefined()
       })
 
       test('should return error if value is negative', async () => {
@@ -61,21 +74,13 @@ describe('sendTransaction', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toContain('Amount must be greater than zero')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
+        setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -86,17 +91,8 @@ describe('sendTransaction', () => {
         expect(server.wdk.getAccount).toHaveBeenCalledWith('bitcoin', 0)
       })
 
-      test('should call quoteSendTransaction before sending', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
+      test('should call quoteSendTransaction with to and value as BigInt', async () => {
+        const { quoteSendTransactionMock } = setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -110,17 +106,8 @@ describe('sendTransaction', () => {
         })
       })
 
-      test('should call sendTransaction with to and value', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
+      test('should call sendTransaction with to and value after confirmation', async () => {
+        const { sendTransactionMock } = setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -136,17 +123,8 @@ describe('sendTransaction', () => {
     })
 
     describe('confirmation flow', () => {
-      test('should call elicitInput for confirmation', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
+      test('should call elicitInput with confirmation message containing amount and recipient', async () => {
+        setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -159,18 +137,12 @@ describe('sendTransaction', () => {
             message: expect.stringContaining('TRANSACTION CONFIRMATION')
           })
         )
+        expect(server.server.elicitInput.mock.calls[0][0].message).toContain('100000')
+        expect(server.server.elicitInput.mock.calls[0][0].message).toContain('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh')
       })
 
       test('should return cancelled message if user declines', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: jest.fn()
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'reject' })
+        setupMocks({ elicit: { action: 'reject' } })
 
         const result = await handler({
           chain: 'bitcoin',
@@ -179,19 +151,11 @@ describe('sendTransaction', () => {
         })
 
         expect(result.content[0].text).toBe('Transaction cancelled by user. No funds were spent.')
+        expect(result.structuredContent).toBeUndefined()
       })
 
       test('should not call sendTransaction if user declines', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn()
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'reject' })
+        const { sendTransactionMock } = setupMocks({ elicit: { action: 'reject' } })
 
         await handler({
           chain: 'bitcoin',
@@ -204,17 +168,8 @@ describe('sendTransaction', () => {
     })
 
     describe('result formatting', () => {
-      test('should return hash on success', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc123', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
+      test('should return complete response on success', async () => {
+        setupMocks({ send: { hash: '0xabc123', fee: 5000n } })
 
         const result = await handler({
           chain: 'bitcoin',
@@ -222,28 +177,13 @@ describe('sendTransaction', () => {
           value: '100000'
         })
 
-        expect(result.structuredContent.hash).toBe('0xabc123')
-      })
-
-      test('should return fee as string', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n })
-        const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 5000n })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock,
-          sendTransaction: sendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
+        expect(result.structuredContent).toEqual({
+          hash: '0xabc123',
+          fee: '5000'
         })
-
-        expect(result.structuredContent.fee).toBe('5000')
       })
     })
 
@@ -258,7 +198,10 @@ describe('sendTransaction', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error sending transaction on bitcoin: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

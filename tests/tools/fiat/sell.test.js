@@ -20,6 +20,16 @@ describe('sell', () => {
     }
   })
 
+  function setupMocks (sellUrl = 'https://sell.moonpay.com/abc123') {
+    const sellMock = jest.fn().mockResolvedValue({ sellUrl })
+    const accountMock = {
+      getAddress: jest.fn().mockResolvedValue('0x123'),
+      getFiatProtocol: jest.fn().mockReturnValue({ sell: sellMock })
+    }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { sellMock, accountMock }
+  }
+
   test('should not register tool if no fiat chains available', () => {
     server.getFiatChains.mockReturnValue([])
 
@@ -59,23 +69,13 @@ describe('sell', () => {
 
         expect(result.isError).toBe(true)
         expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            sell: sellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -88,20 +88,7 @@ describe('sell', () => {
       })
 
       test('should call getFiatProtocol with first protocol label', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const getFiatProtocolMock = jest.fn().mockReturnValue({
-          sell: sellMock
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: getFiatProtocolMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { accountMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -110,22 +97,11 @@ describe('sell', () => {
           cryptoAmount: '1000000000000000000'
         })
 
-        expect(getFiatProtocolMock).toHaveBeenCalledWith('moonpay')
+        expect(accountMock.getFiatProtocol).toHaveBeenCalledWith('moonpay')
       })
 
       test('should call sell with options', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            sell: sellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { sellMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -143,18 +119,7 @@ describe('sell', () => {
       })
 
       test('should use provided refundAddress if given', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            sell: sellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        const { sellMock } = setupMocks()
 
         await handler({
           chain: 'ethereum',
@@ -165,27 +130,14 @@ describe('sell', () => {
         })
 
         expect(sellMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            refundAddress: '0x456'
-          })
+          expect.objectContaining({ refundAddress: '0x456' })
         )
       })
     })
 
     describe('result formatting', () => {
-      test('should return sellUrl on success', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            sell: sellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should return complete response on success', async () => {
+        setupMocks('https://sell.moonpay.com/abc123')
 
         const result = await handler({
           chain: 'ethereum',
@@ -194,32 +146,14 @@ describe('sell', () => {
           cryptoAmount: '1000000000000000000'
         })
 
-        expect(result.structuredContent.sellUrl).toBe('https://sell.moonpay.com/abc123')
-        expect(result.structuredContent.protocol).toBe('moonpay')
-      })
-
-      test('should return text with URL', async () => {
-        const sellMock = jest.fn().mockResolvedValue({
-          sellUrl: 'https://sell.moonpay.com/abc123'
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getFiatProtocol: jest.fn().mockReturnValue({
-            sell: sellMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          cryptoAsset: 'eth',
-          fiatCurrency: 'USD',
-          cryptoAmount: '1000000000000000000'
-        })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toContain('https://sell.moonpay.com/abc123')
+        expect(result.structuredContent).toEqual({
+          sellUrl: 'https://sell.moonpay.com/abc123',
+          protocol: 'moonpay'
+        })
       })
     })
 
@@ -235,7 +169,10 @@ describe('sell', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error generating sell URL: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })

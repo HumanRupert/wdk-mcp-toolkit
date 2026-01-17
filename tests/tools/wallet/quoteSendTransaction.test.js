@@ -19,6 +19,13 @@ describe('quoteSendTransaction', () => {
     }
   })
 
+  function setupMocks (fee = 5000n) {
+    const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee })
+    const accountMock = { quoteSendTransaction: quoteSendTransactionMock }
+    server.wdk.getAccount.mockResolvedValue(accountMock)
+    return { quoteSendTransactionMock, accountMock }
+  }
+
   test('should register tool with name quoteSendTransaction', () => {
     quoteSendTransaction(server)
 
@@ -39,15 +46,7 @@ describe('quoteSendTransaction', () => {
 
     describe('protocol interaction', () => {
       test('should call wdk.getAccount with chain and index 0', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({
-          fee: 5000n
-        })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+        setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -58,16 +57,8 @@ describe('quoteSendTransaction', () => {
         expect(server.wdk.getAccount).toHaveBeenCalledWith('bitcoin', 0)
       })
 
-      test('should call quoteSendTransaction with to and value', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({
-          fee: 5000n
-        })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should call quoteSendTransaction with to and value as BigInt', async () => {
+        const { quoteSendTransactionMock } = setupMocks()
 
         await handler({
           chain: 'bitcoin',
@@ -80,42 +71,11 @@ describe('quoteSendTransaction', () => {
           value: 100000n
         })
       })
-
-      test('should convert value to BigInt', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({
-          fee: 5000n
-        })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7',
-          value: '1000000000000000000'
-        })
-
-        expect(quoteSendTransactionMock).toHaveBeenCalledWith({
-          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb7',
-          value: 1000000000000000000n
-        })
-      })
     })
 
     describe('result formatting', () => {
-      test('should return fee as string', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({
-          fee: 5000n
-        })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+      test('should return complete response with fee as string', async () => {
+        setupMocks(5000n)
 
         const result = await handler({
           chain: 'bitcoin',
@@ -123,28 +83,10 @@ describe('quoteSendTransaction', () => {
           value: '100000'
         })
 
-        expect(result.structuredContent.fee).toBe('5000')
-      })
-
-      test('should return text content with JSON', async () => {
-        const quoteSendTransactionMock = jest.fn().mockResolvedValue({
-          fee: 5000n
-        })
-
-        const accountMock = {
-          quoteSendTransaction: quoteSendTransactionMock
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
+        expect(result.isError).toBeUndefined()
+        expect(result.content).toHaveLength(1)
         expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toContain('5000')
+        expect(result.structuredContent).toEqual({ fee: '5000' })
       })
     })
 
@@ -159,7 +101,10 @@ describe('quoteSendTransaction', () => {
         })
 
         expect(result.isError).toBe(true)
+        expect(result.content).toHaveLength(1)
+        expect(result.content[0].type).toBe('text')
         expect(result.content[0].text).toBe('Error quoting transaction on bitcoin: Network error')
+        expect(result.structuredContent).toBeUndefined()
       })
     })
   })
