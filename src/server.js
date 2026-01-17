@@ -17,8 +17,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import WDK from '@tetherto/wdk'
 import { SwapProtocol, BridgeProtocol, LendingProtocol, FiatProtocol } from '@tetherto/wdk-wallet/protocols'
 import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http'
-import { WdkIndexerClient, WdkIndexerConfig } from '@tetherto/wdk-indexer-http'
+import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
 
+/** @typedef {import('@tetherto/wdk-indexer-http').WdkIndexerConfig} WdkIndexerConfig */
 
 /**
  * @typedef {Object} TokenInfo
@@ -311,7 +312,7 @@ export class WdkMcpServer extends McpServer {
   /**
    * Registers a new wallet to the server.
    *
-   * @template {typeof import('@tetherto/wdk-wallet').default} W
+   * @template {WDK} W
    * @param {string} blockchain - The name of the blockchain (e.g., "ethereum").
    * @param {W} WalletManager - The wallet manager class.
    * @param {ConstructorParameters<W>[1]} config - The configuration object.
