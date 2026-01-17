@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals'
 
 import WDK from '@tetherto/wdk'
 import { SwapProtocol, BridgeProtocol, LendingProtocol, FiatProtocol } from '@tetherto/wdk-wallet/protocols'
+import { BitfinexPricingClient } from '@tetherto/wdk-pricing-bitfinex-http'
+import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
 
 import { WdkMcpServer, DEFAULT_TOKENS, CHAINS } from '../src/server.js'
 
@@ -17,6 +19,12 @@ describe('WdkMcpServer', () => {
   })
 
   describe('useWdk', () => {
+    test('should create WDK instance with provided seed', () => {
+      server.useWdk({ seed: SEED_PHRASE })
+
+      expect(server.wdk).toBeInstanceOf(WDK)
+    })
+
     test('should create WDK instance with WDK_SEED env variable', () => {
       const originalEnv = process.env.WDK_SEED
       process.env.WDK_SEED = SEED_PHRASE
@@ -46,6 +54,12 @@ describe('WdkMcpServer', () => {
   })
 
   describe('useIndexer', () => {
+    test('should create WdkIndexerClient instance with apiKey', () => {
+      server.useIndexer({ apiKey: 'test-api-key' })
+
+      expect(server.indexerClient).toBeInstanceOf(WdkIndexerClient)
+    })
+
     test('should throw if no apiKey provided', () => {
       expect(() => server.useIndexer({}))
         .toThrow('Indexer requires apiKey.')
@@ -59,6 +73,12 @@ describe('WdkMcpServer', () => {
   })
 
   describe('usePricing', () => {
+    test('should create BitfinexPricingClient instance', () => {
+      server.usePricing()
+
+      expect(server.pricingClient).toBeInstanceOf(BitfinexPricingClient)
+    })
+
     test('should return server instance for chaining', () => {
       const result = server.usePricing()
 
