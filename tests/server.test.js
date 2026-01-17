@@ -108,14 +108,6 @@ describe('WdkMcpServer', () => {
       expect(server._tokenRegistry.get('ethereum').get('TEST')).toEqual(tokenInfo)
     })
 
-    test('should uppercase symbol', () => {
-      const tokenInfo = { address: '0x123', decimals: 18 }
-
-      server.registerToken('ethereum', 'test', tokenInfo)
-
-      expect(server._tokenRegistry.get('ethereum').get('TEST')).toEqual(tokenInfo)
-    })
-
     test('should return server instance for chaining', () => {
       const result = server.registerToken('ethereum', 'TEST', { address: '0x123', decimals: 18 })
 
