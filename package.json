@@ -21,7 +21,10 @@
   "scripts": {
     "build:types": "tsc",
     "lint": "standard",
-    "lint:fix": "standard --fix"
+    "lint:fix": "standard --fix",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
   },
   "exports": {
     ".": {
@@ -43,7 +46,8 @@
   "standard": {
     "ignore": [
       "types/**/*.d.ts",
-      "examples/**/*.js"
+      "examples/**/*.js",
+      "tests/**/*.js"
     ]
   },
   "dependencies": {
@@ -55,7 +59,9 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "cross-env": "7.0.3",
+    "jest": "30.1.3",
     "standard": "17.1.2",
-    "typescript": "^5.8.3"
+    "typescript": "5.8.3"
   }
 }
