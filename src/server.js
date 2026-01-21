@@ -73,7 +73,7 @@ export const CHAINS = {
  * Default token configurations per blockchain.
  *
  * @readonly
- * @type {Object<string, Object<string, TokenInfo>>}
+ * @type {Record<string, Record<string, TokenInfo>>}
  */
 export const DEFAULT_TOKENS = {
   [CHAINS.ETHEREUM]: {
