@@ -92,8 +92,9 @@ describe('WdkMcpServer', () => {
     })
 
     test('should return registered chain names', () => {
-      server._chains.add('ethereum')
-      server._chains.add('bitcoin')
+      server._wdk = { registerWallet: jest.fn() }
+      server.registerWallet('ethereum', jest.fn(), {})
+      server.registerWallet('bitcoin', jest.fn(), {})
 
       expect(server.getChains()).toEqual(['ethereum', 'bitcoin'])
     })
@@ -105,7 +106,7 @@ describe('WdkMcpServer', () => {
 
       server.registerToken('ethereum', 'TEST', tokenInfo)
 
-      expect(server._tokenRegistry.get('ethereum').get('TEST')).toEqual(tokenInfo)
+      expect(server.getTokenInfo('ethereum', 'TEST')).toEqual(tokenInfo)
     })
 
     test('should return server instance for chaining', () => {
@@ -118,7 +119,7 @@ describe('WdkMcpServer', () => {
   describe('getTokenInfo', () => {
     test('should return token info for registered token', () => {
       const tokenInfo = { address: '0x123', decimals: 18 }
-      server._tokenRegistry.set('ethereum', new Map([['TEST', tokenInfo]]))
+      server.registerToken('ethereum', 'TEST', tokenInfo)
 
       expect(server.getTokenInfo('ethereum', 'TEST')).toEqual(tokenInfo)
     })
@@ -129,7 +130,7 @@ describe('WdkMcpServer', () => {
 
     test('should be case-insensitive for symbol', () => {
       const tokenInfo = { address: '0x123', decimals: 18 }
-      server._tokenRegistry.set('ethereum', new Map([['TEST', tokenInfo]]))
+      server.registerToken('ethereum', 'TEST', tokenInfo)
 
       expect(server.getTokenInfo('ethereum', 'test')).toEqual(tokenInfo)
     })
@@ -141,10 +142,8 @@ describe('WdkMcpServer', () => {
 
   describe('getRegisteredTokens', () => {
     test('should return token symbols for chain', () => {
-      server._tokenRegistry.set('ethereum', new Map([
-        ['USDT', { address: '0x1', decimals: 6 }],
-        ['USDC', { address: '0x2', decimals: 6 }]
-      ]))
+      server.registerToken('ethereum', 'USDT', { address: '0x1', decimals: 6 })
+      server.registerToken('ethereum', 'USDC', { address: '0x2', decimals: 6 })
 
       const tokens = server.getRegisteredTokens('ethereum')
 
@@ -183,7 +182,7 @@ describe('WdkMcpServer', () => {
 
       server.registerWallet('ethereum', WalletManagerMock, CONFIG)
 
-      expect(server._chains.has('ethereum')).toBe(true)
+      expect(server.getChains()).toContain('ethereum')
     })
 
     test('should register default tokens for known chains', () => {
@@ -243,29 +242,29 @@ describe('WdkMcpServer', () => {
     test('should add swap protocol to swap registry', () => {
       server.registerProtocol('ethereum', 'velora', SwapProtocolMock, CONFIG)
 
-      expect(server._protocols.swap.has('ethereum')).toBe(true)
-      expect(server._protocols.swap.get('ethereum').has('velora')).toBe(true)
+      expect(server.getSwapChains()).toContain('ethereum')
+      expect(server.getSwapProtocols('ethereum')).toContain('velora')
     })
 
     test('should add bridge protocol to bridge registry', () => {
       server.registerProtocol('ethereum', 'usdt0', BridgeProtocolMock, CONFIG)
 
-      expect(server._protocols.bridge.has('ethereum')).toBe(true)
-      expect(server._protocols.bridge.get('ethereum').has('usdt0')).toBe(true)
+      expect(server.getBridgeChains()).toContain('ethereum')
+      expect(server.getBridgeProtocols('ethereum')).toContain('usdt0')
     })
 
     test('should add lending protocol to lending registry', () => {
       server.registerProtocol('ethereum', 'aave', LendingProtocolMock, CONFIG)
 
-      expect(server._protocols.lending.has('ethereum')).toBe(true)
-      expect(server._protocols.lending.get('ethereum').has('aave')).toBe(true)
+      expect(server.getLendingChains()).toContain('ethereum')
+      expect(server.getLendingProtocols('ethereum')).toContain('aave')
     })
 
     test('should add fiat protocol to fiat registry', () => {
       server.registerProtocol('ethereum', 'moonpay', FiatProtocolMock, CONFIG)
 
-      expect(server._protocols.fiat.has('ethereum')).toBe(true)
-      expect(server._protocols.fiat.get('ethereum').has('moonpay')).toBe(true)
+      expect(server.getFiatChains()).toContain('ethereum')
+      expect(server.getFiatProtocols('ethereum')).toContain('moonpay')
     })
 
     test('should throw for unknown protocol type', () => {
@@ -295,7 +294,10 @@ describe('WdkMcpServer', () => {
     })
 
     test('should return chains with swap protocols', () => {
-      server._protocols.swap.set('ethereum', new Set(['velora']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const SwapMock = jest.fn()
+      Object.setPrototypeOf(SwapMock.prototype, SwapProtocol.prototype)
+      server.registerProtocol('ethereum', 'velora', SwapMock, {})
 
       expect(server.getSwapChains()).toEqual(['ethereum'])
     })
@@ -303,7 +305,11 @@ describe('WdkMcpServer', () => {
 
   describe('getSwapProtocols', () => {
     test('should return protocol labels for chain', () => {
-      server._protocols.swap.set('ethereum', new Set(['velora', 'uniswap']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const SwapMock = jest.fn()
+      Object.setPrototypeOf(SwapMock.prototype, SwapProtocol.prototype)
+      server.registerProtocol('ethereum', 'velora', SwapMock, {})
+      server.registerProtocol('ethereum', 'uniswap', SwapMock, {})
 
       const protocols = server.getSwapProtocols('ethereum')
 
@@ -321,7 +327,10 @@ describe('WdkMcpServer', () => {
     })
 
     test('should return chains with bridge protocols', () => {
-      server._protocols.bridge.set('ethereum', new Set(['usdt0']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const BridgeMock = jest.fn()
+      Object.setPrototypeOf(BridgeMock.prototype, BridgeProtocol.prototype)
+      server.registerProtocol('ethereum', 'usdt0', BridgeMock, {})
 
       expect(server.getBridgeChains()).toEqual(['ethereum'])
     })
@@ -329,7 +338,10 @@ describe('WdkMcpServer', () => {
 
   describe('getBridgeProtocols', () => {
     test('should return protocol labels for chain', () => {
-      server._protocols.bridge.set('ethereum', new Set(['usdt0']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const BridgeMock = jest.fn()
+      Object.setPrototypeOf(BridgeMock.prototype, BridgeProtocol.prototype)
+      server.registerProtocol('ethereum', 'usdt0', BridgeMock, {})
 
       expect(server.getBridgeProtocols('ethereum')).toEqual(['usdt0'])
     })
@@ -345,7 +357,10 @@ describe('WdkMcpServer', () => {
     })
 
     test('should return chains with lending protocols', () => {
-      server._protocols.lending.set('ethereum', new Set(['aave']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const LendingMock = jest.fn()
+      Object.setPrototypeOf(LendingMock.prototype, LendingProtocol.prototype)
+      server.registerProtocol('ethereum', 'aave', LendingMock, {})
 
       expect(server.getLendingChains()).toEqual(['ethereum'])
     })
@@ -353,7 +368,10 @@ describe('WdkMcpServer', () => {
 
   describe('getLendingProtocols', () => {
     test('should return protocol labels for chain', () => {
-      server._protocols.lending.set('ethereum', new Set(['aave']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const LendingMock = jest.fn()
+      Object.setPrototypeOf(LendingMock.prototype, LendingProtocol.prototype)
+      server.registerProtocol('ethereum', 'aave', LendingMock, {})
 
       expect(server.getLendingProtocols('ethereum')).toEqual(['aave'])
     })
@@ -369,7 +387,10 @@ describe('WdkMcpServer', () => {
     })
 
     test('should return chains with fiat protocols', () => {
-      server._protocols.fiat.set('ethereum', new Set(['moonpay']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const FiatMock = jest.fn()
+      Object.setPrototypeOf(FiatMock.prototype, FiatProtocol.prototype)
+      server.registerProtocol('ethereum', 'moonpay', FiatMock, {})
 
       expect(server.getFiatChains()).toEqual(['ethereum'])
     })
@@ -377,7 +398,10 @@ describe('WdkMcpServer', () => {
 
   describe('getFiatProtocols', () => {
     test('should return protocol labels for chain', () => {
-      server._protocols.fiat.set('ethereum', new Set(['moonpay']))
+      server._wdk = { registerProtocol: jest.fn() }
+      const FiatMock = jest.fn()
+      Object.setPrototypeOf(FiatMock.prototype, FiatProtocol.prototype)
+      server.registerProtocol('ethereum', 'moonpay', FiatMock, {})
 
       expect(server.getFiatProtocols('ethereum')).toEqual(['moonpay'])
     })
