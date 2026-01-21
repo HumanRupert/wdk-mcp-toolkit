@@ -21,13 +21,9 @@ export namespace CHAINS {
  * Default token configurations per blockchain.
  *
  * @readonly
- * @type {Object<string, Object<string, TokenInfo>>}
+ * @type {Record<string, Record<string, TokenInfo>>}
  */
-export const DEFAULT_TOKENS: {
-    [x: string]: {
-        [x: string]: TokenInfo;
-    };
-};
+export const DEFAULT_TOKENS: Record<string, Record<string, TokenInfo>>;
 export class WdkMcpServer extends McpServer {
     /**
      * Creates a new MCP server for Tether Wallet Development Kit.

@@ -8,3 +8,4 @@ export { WdkMcpServer, CHAINS, DEFAULT_TOKENS } from "./src/server.js";
 export { getAddress, getBalance, getFeeRates, getMaxSpendableBtc, getTokenBalance, quoteSendTransaction, quoteTransfer, sendTransaction, transfer, sign, verify } from "./src/tools/wallet/index.js";
 export { getCurrentPrice, getHistoricalPrice } from "./src/tools/pricing/index.js";
 export { getTokenTransfers, getIndexerTokenBalance } from "./src/tools/indexer/index.js";
+export { parseAmountToBaseUnits, formatBaseUnitsToAmount, AmountParseError, AMOUNT_ERROR_CODES } from "./src/utils/index.js";
