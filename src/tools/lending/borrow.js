@@ -14,6 +14,7 @@
 'use strict'
 
 import { z } from 'zod'
+import { parseAmountToBaseUnits } from '../../utils/index.js'
 
 /** @typedef {import('../../server.js').WdkMcpServer} WdkMcpServer */
 
@@ -117,7 +118,7 @@ Error Handling:
         const account = await server.wdk.getAccount(chain, 0)
         const lendingProtocol = account.getLendingProtocol(label)
 
-        const baseAmount = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenInfo.decimals)))
+        const baseAmount = parseAmountToBaseUnits(amount, tokenInfo.decimals)
         const onBehalfOfAddress = onBehalfOf || await account.getAddress()
 
         const options = {

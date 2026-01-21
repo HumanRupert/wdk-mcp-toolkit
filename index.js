@@ -56,3 +56,10 @@ export {
   getTokenTransfers,
   getIndexerTokenBalance
 } from './src/tools/indexer/index.js'
+
+export {
+  parseAmountToBaseUnits,
+  formatBaseUnitsToAmount,
+  AmountParseError,
+  AMOUNT_ERROR_CODES
+} from './src/utils/index.js'

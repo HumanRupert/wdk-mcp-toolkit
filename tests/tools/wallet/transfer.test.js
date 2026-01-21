@@ -107,7 +107,7 @@ describe('transfer', () => {
         })
 
         expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Invalid amount: "abc"')
+        expect(result.content[0].text).toContain('Invalid amount format')
       })
 
       test('should throw if amount is zero', async () => {
@@ -121,7 +121,7 @@ describe('transfer', () => {
         })
 
         expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Invalid amount')
+        expect(result.content[0].text).toContain('Amount must be greater than zero')
       })
 
       test('should throw if amount is negative', async () => {
@@ -135,7 +135,7 @@ describe('transfer', () => {
         })
 
         expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Invalid amount')
+        expect(result.content[0].text).toContain('Negative amounts are not allowed')
       })
     })
 

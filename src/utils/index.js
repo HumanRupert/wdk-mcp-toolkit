@@ -13,33 +13,9 @@
 // limitations under the License.
 'use strict'
 
-import { quoteBridge } from './quoteBridge.js'
-import { bridge } from './bridge.js'
-
-/** @typedef {import('../../server.js').ToolFunction} ToolFunction */
-
-/**
- * Read-only bridge tools.
- *
- * @readonly
- * @type {ToolFunction[]}
- */
-export const BRIDGE_READ_TOOLS = [quoteBridge]
-
-/**
- * Write bridge tools (require confirmation).
- *
- * @readonly
- * @type {ToolFunction[]}
- */
-export const BRIDGE_WRITE_TOOLS = [bridge]
-
-/**
- * All bridge tools.
- *
- * @readonly
- * @type {ToolFunction[]}
- */
-export const BRIDGE_TOOLS = [...BRIDGE_READ_TOOLS, ...BRIDGE_WRITE_TOOLS]
-
-export { quoteBridge, bridge }
+export {
+  parseAmountToBaseUnits,
+  formatBaseUnitsToAmount,
+  AmountParseError,
+  AMOUNT_ERROR_CODES
+} from './amount.js'
