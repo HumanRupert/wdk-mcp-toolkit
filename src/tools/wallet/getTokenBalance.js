@@ -14,6 +14,7 @@
 'use strict'
 
 import { z } from 'zod'
+import { formatBaseUnitsToAmount } from '../../utils/index.js'
 
 /** @typedef {import('../../server.js').WdkMcpServer} WdkMcpServer */
 
@@ -94,7 +95,7 @@ Error Handling:
         const balance = await account.getTokenBalance(tokenAddress)
 
         const rawBalance = balance.toString()
-        const humanReadable = Number(balance) / (10 ** decimals)
+        const humanReadable = formatBaseUnitsToAmount(BigInt(balance), decimals)
 
         return {
           content: [{
@@ -102,7 +103,7 @@ Error Handling:
             text: `Balance: ${humanReadable} ${tokenSymbol} (${rawBalance} base units)`
           }],
           structuredContent: {
-            balance: humanReadable.toString(),
+            balance: humanReadable,
             balanceRaw: rawBalance
           }
         }
