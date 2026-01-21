@@ -92,7 +92,7 @@ describe('quoteTransfer', () => {
         })
 
         expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Invalid amount')
+        expect(result.content[0].text).toContain('Amount must be greater than zero')
         expect(result.structuredContent).toBeUndefined()
       })
     })

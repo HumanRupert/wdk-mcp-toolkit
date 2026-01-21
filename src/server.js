@@ -27,7 +27,6 @@ import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
  * @property {number} decimals - Number of decimal places for the token.
  */
 
-
 /**
  * @typedef {Object} WdkConfig
  * @property {string} [seed] - BIP-39 seed phrase. Falls back to WDK_SEED env variable.

@@ -14,6 +14,7 @@
 'use strict'
 
 import { z } from 'zod'
+import { parseAmountToBaseUnits } from '../../utils/index.js'
 
 /** @typedef {import('../../server.js').WdkMcpServer} WdkMcpServer */
 
@@ -106,12 +107,11 @@ Error Handling:
 
         const { address: tokenAddress, decimals } = tokenInfo
 
-        const humanAmount = parseFloat(amount)
-        if (isNaN(humanAmount) || humanAmount <= 0) {
-          throw new Error(`Invalid amount: "${amount}". Please provide a positive number (e.g., "10" or "0.5")`)
-        }
+        const baseUnitAmount = parseAmountToBaseUnits(amount, decimals)
 
-        const baseUnitAmount = BigInt(Math.floor(humanAmount * (10 ** decimals)))
+        if (baseUnitAmount === 0n) {
+          throw new Error('Amount must be greater than zero')
+        }
 
         const account = await server.wdk.getAccount(chain, 0)
         const result = await account.quoteTransfer({

@@ -14,6 +14,7 @@
 'use strict'
 
 import { z } from 'zod'
+import { parseAmountToBaseUnits, formatBaseUnitsToAmount } from '../../utils/index.js'
 
 /** @typedef {import('../../server.js').WdkMcpServer} WdkMcpServer */
 
@@ -124,7 +125,7 @@ Error Handling:
         }
 
         const decimals = side === 'sell' ? tokenInInfo.decimals : tokenOutInfo.decimals
-        const baseAmount = BigInt(Math.floor(parseFloat(amount) * (10 ** decimals)))
+        const baseAmount = parseAmountToBaseUnits(amount, decimals)
 
         if (side === 'sell') {
           options.tokenInAmount = baseAmount
@@ -134,15 +135,15 @@ Error Handling:
 
         const quote = await swapProtocol.quoteSwap(options)
 
-        const tokenInAmount = Number(quote.tokenInAmount) / (10 ** tokenInInfo.decimals)
-        const tokenOutAmount = Number(quote.tokenOutAmount) / (10 ** tokenOutInfo.decimals)
+        const tokenInAmount = formatBaseUnitsToAmount(BigInt(quote.tokenInAmount), tokenInInfo.decimals)
+        const tokenOutAmount = formatBaseUnitsToAmount(BigInt(quote.tokenOutAmount), tokenOutInfo.decimals)
 
         const result = {
           protocol: label,
           tokenIn,
           tokenOut,
-          tokenInAmount: tokenInAmount.toString(),
-          tokenOutAmount: tokenOutAmount.toString(),
+          tokenInAmount,
+          tokenOutAmount,
           fee: quote.fee.toString()
         }
 

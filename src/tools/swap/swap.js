@@ -14,6 +14,7 @@
 'use strict'
 
 import { z } from 'zod'
+import { parseAmountToBaseUnits, formatBaseUnitsToAmount } from '../../utils/index.js'
 
 /** @typedef {import('../../server.js').WdkMcpServer} WdkMcpServer */
 
@@ -138,7 +139,7 @@ Error Handling:
         }
 
         const decimals = side === 'sell' ? tokenInInfo.decimals : tokenOutInfo.decimals
-        const baseAmount = BigInt(Math.floor(parseFloat(amount) * (10 ** decimals)))
+        const baseAmount = parseAmountToBaseUnits(amount, decimals)
 
         if (side === 'sell') {
           options.tokenInAmount = baseAmount
@@ -152,8 +153,8 @@ Error Handling:
 
         const quote = await swapProtocol.quoteSwap(options)
 
-        const quotedInAmount = Number(quote.tokenInAmount) / (10 ** tokenInInfo.decimals)
-        const quotedOutAmount = Number(quote.tokenOutAmount) / (10 ** tokenOutInfo.decimals)
+        const quotedInAmount = formatBaseUnitsToAmount(BigInt(quote.tokenInAmount), tokenInInfo.decimals)
+        const quotedOutAmount = formatBaseUnitsToAmount(BigInt(quote.tokenOutAmount), tokenOutInfo.decimals)
 
         const confirmationMessage = `⚠️  SWAP CONFIRMATION REQUIRED
 
@@ -190,8 +191,8 @@ Do you want to proceed with this swap?`
 
         const swapResult = await swapProtocol.swap(options)
 
-        const tokenInAmount = Number(swapResult.tokenInAmount) / (10 ** tokenInInfo.decimals)
-        const tokenOutAmount = Number(swapResult.tokenOutAmount) / (10 ** tokenOutInfo.decimals)
+        const tokenInAmount = formatBaseUnitsToAmount(BigInt(swapResult.tokenInAmount), tokenInInfo.decimals)
+        const tokenOutAmount = formatBaseUnitsToAmount(BigInt(swapResult.tokenOutAmount), tokenOutInfo.decimals)
 
         const result = {
           success: true,
@@ -199,8 +200,8 @@ Do you want to proceed with this swap?`
           hash: swapResult.hash,
           tokenIn,
           tokenOut,
-          tokenInAmount: tokenInAmount.toString(),
-          tokenOutAmount: tokenOutAmount.toString(),
+          tokenInAmount,
+          tokenOutAmount,
           fee: swapResult.fee.toString()
         }
 
