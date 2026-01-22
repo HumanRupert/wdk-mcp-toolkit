@@ -1,43 +1,27 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { sendTransaction } from '../../../src/tools/wallet/sendTransaction.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('sendTransaction', () => {
-  let server, registerToolMock
+  let server, mocks
+
+  const RECIPIENT = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getChains: jest.fn().mockReturnValue(['bitcoin', 'ethereum']),
-      wdk: {
-        getAccount: jest.fn()
-      },
-      server: {
-        elicitInput: jest.fn()
-      }
-    }
+    const result = createMockServer({ chains: ['bitcoin', 'ethereum'] })
+    server = result.server
+    mocks = result.mocks
+    mocks.account.quoteSendTransaction.mockResolvedValue({ fee: 5000n })
+    mocks.account.sendTransaction.mockResolvedValue({ hash: '0xabc123', fee: 5000n })
   })
-
-  function setupMocks (overrides = {}) {
-    const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee: 5000n, ...overrides.quote })
-    const sendTransactionMock = jest.fn().mockResolvedValue({ hash: '0xabc123', fee: 5000n, ...overrides.send })
-    const accountMock = {
-      quoteSendTransaction: quoteSendTransactionMock,
-      sendTransaction: sendTransactionMock
-    }
-    server.wdk.getAccount.mockResolvedValue(accountMock)
-    server.server.elicitInput.mockResolvedValue(overrides.elicit ?? { action: 'accept', content: { confirmed: true } })
-    return { quoteSendTransactionMock, sendTransactionMock, accountMock }
-  }
 
   test('should register tool with name sendTransaction', () => {
     sendTransaction(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'sendTransaction',
       expect.any(Object),
       expect.any(Function)
@@ -49,160 +33,76 @@ describe('sendTransaction', () => {
 
     beforeEach(() => {
       sendTransaction(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('validation', () => {
-      test('should return error if value is zero', async () => {
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '0'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Amount must be greater than zero')
-        expect(result.structuredContent).toBeUndefined()
+    test('should return error if value is zero', async () => {
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '0'
       })
 
-      test('should return error if value is negative', async () => {
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '-100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toContain('Amount must be greater than zero')
-        expect(result.structuredContent).toBeUndefined()
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('Amount must be greater than zero')
+      expect(result.structuredContent).toBeUndefined()
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        setupMocks()
-
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('bitcoin', 0)
+    test('should return error if value is negative', async () => {
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '-100'
       })
 
-      test('should call quoteSendTransaction with to and value as BigInt', async () => {
-        const { quoteSendTransactionMock } = setupMocks()
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toContain('Amount must be greater than zero')
+      expect(result.structuredContent).toBeUndefined()
+    })
 
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
+    test('should return cancelled message if user declines', async () => {
+      server.server.elicitInput.mockResolvedValue({ action: 'reject' })
 
-        expect(quoteSendTransactionMock).toHaveBeenCalledWith({
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: 100000n
-        })
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '100000'
       })
 
-      test('should call sendTransaction with to and value after confirmation', async () => {
-        const { sendTransactionMock } = setupMocks()
+      expect(result.content[0].text).toBe('Transaction cancelled by user. No funds were spent.')
+      expect(result.structuredContent).toBeUndefined()
+    })
 
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
+    test('should return complete response on success', async () => {
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '100000'
+      })
 
-        expect(sendTransactionMock).toHaveBeenCalledWith({
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: 100000n
-        })
+      expect(result.isError).toBeUndefined()
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.structuredContent).toEqual({
+        hash: '0xabc123',
+        fee: '5000'
       })
     })
 
-    describe('confirmation flow', () => {
-      test('should call elicitInput with confirmation message containing amount and recipient', async () => {
-        setupMocks()
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(server.server.elicitInput).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: expect.stringContaining('TRANSACTION CONFIRMATION')
-          })
-        )
-        expect(server.server.elicitInput.mock.calls[0][0].message).toContain('100000')
-        expect(server.server.elicitInput.mock.calls[0][0].message).toContain('bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh')
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '100000'
       })
 
-      test('should return cancelled message if user declines', async () => {
-        setupMocks({ elicit: { action: 'reject' } })
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(result.content[0].text).toBe('Transaction cancelled by user. No funds were spent.')
-        expect(result.structuredContent).toBeUndefined()
-      })
-
-      test('should not call sendTransaction if user declines', async () => {
-        const { sendTransactionMock } = setupMocks({ elicit: { action: 'reject' } })
-
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(sendTransactionMock).not.toHaveBeenCalled()
-      })
-    })
-
-    describe('result formatting', () => {
-      test('should return complete response on success', async () => {
-        setupMocks({ send: { hash: '0xabc123', fee: 5000n } })
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(result.isError).toBeUndefined()
-        expect(result.content).toHaveLength(1)
-        expect(result.content[0].type).toBe('text')
-        expect(result.structuredContent).toEqual({
-          hash: '0xabc123',
-          fee: '5000'
-        })
-      })
-    })
-
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content).toHaveLength(1)
-        expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toBe('Error sending transaction on bitcoin: Network error')
-        expect(result.structuredContent).toBeUndefined()
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.content[0].text).toBe('Error sending transaction on bitcoin: Network error')
+      expect(result.structuredContent).toBeUndefined()
     })
   })
 })

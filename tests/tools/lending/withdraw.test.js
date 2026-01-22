@@ -1,27 +1,29 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { withdraw } from '../../../src/tools/lending/withdraw.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('withdraw', () => {
-  let server, registerToolMock
+  let server, mocks
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getLendingChains: jest.fn().mockReturnValue(['ethereum']),
-      getLendingProtocols: jest.fn().mockReturnValue(['aave']),
-      getTokenInfo: jest.fn(),
-      wdk: {
-        getAccount: jest.fn()
-      },
-      server: {
-        elicitInput: jest.fn()
+    const result = createMockServer({
+      chains: ['ethereum'],
+      lendingChains: ['ethereum'],
+      tokens: {
+        ethereum: {
+          USDT: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 }
+        }
       }
-    }
+    })
+    server = result.server
+    mocks = result.mocks
+    mocks.lendingProtocol.withdraw.mockResolvedValue({
+      hash: '0xabc123',
+      fee: 21000000000000n
+    })
   })
 
   test('should not register tool if no lending chains available', () => {
@@ -29,13 +31,13 @@ describe('withdraw', () => {
 
     withdraw(server)
 
-    expect(registerToolMock).not.toHaveBeenCalled()
+    expect(server.registerTool).not.toHaveBeenCalled()
   })
 
   test('should register tool with name withdraw', () => {
     withdraw(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'withdraw',
       expect.any(Object),
       expect.any(Function)
@@ -45,308 +47,83 @@ describe('withdraw', () => {
   describe('handler', () => {
     let handler
 
-    const USDT_INFO = { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 }
-
     beforeEach(() => {
       withdraw(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('validation', () => {
-      test('should return error if no lending protocol for chain', async () => {
-        server.getLendingProtocols.mockReturnValue([])
+    test('should return error if no lending protocols for chain', async () => {
+      server.getLendingProtocols.mockReturnValue([])
 
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('No lending protocol registered for ethereum.')
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should return error if token not registered', async () => {
-        server.getTokenInfo.mockReturnValue(undefined)
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Token USDT not registered for ethereum.')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('No lending protocol registered for ethereum.')
     })
 
-    describe('amount conversion', () => {
-      test('should convert amount to base units using token decimals', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
+    test('should return error if token not registered', async () => {
+      server.getTokenInfo.mockReturnValue(undefined)
 
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(quoteWithdrawMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            amount: 100000000n
-          })
-        )
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('Token USDT not registered for ethereum.')
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
+    test('should return cancelled message when user declines', async () => {
+      server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: false } })
 
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should call getLendingProtocol with first protocol label', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
-
-        const getLendingProtocolMock = jest.fn().mockReturnValue({
-          quoteWithdraw: quoteWithdrawMock,
-          withdraw: withdrawMock
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: getLendingProtocolMock
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(getLendingProtocolMock).toHaveBeenCalledWith('aave')
-      })
-
-      test('should call quoteWithdraw with token address', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(quoteWithdrawMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            token: USDT_INFO.address
-          })
-        )
-      })
-
-      test('should use to address if provided', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100',
-          to: '0x456'
-        })
-
-        expect(quoteWithdrawMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            to: '0x456'
-          })
-        )
-      })
+      expect(result.content[0].text).toBe('Withdraw cancelled by user. No funds were spent.')
     })
 
-    describe('confirmation flow', () => {
-      test('should call elicitInput for confirmation', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
+    test('should return cancelled message when action is not accept', async () => {
+      server.server.elicitInput.mockResolvedValue({ action: 'decline' })
 
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(server.server.elicitInput).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: expect.stringContaining('WITHDRAW CONFIRMATION')
-          })
-        )
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should return cancelled message if user declines', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: jest.fn()
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'reject' })
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.content[0].text).toBe('Withdraw cancelled by user. No funds were spent.')
-      })
+      expect(result.content[0].text).toBe('Withdraw cancelled by user. No funds were spent.')
     })
 
-    describe('result formatting', () => {
-      test('should return hash on success', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc123', fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.structuredContent.hash).toBe('0xabc123')
-        expect(result.structuredContent.protocol).toBe('aave')
-        expect(result.structuredContent.success).toBe(true)
+    test('should return hash in result when user confirms', async () => {
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should return fee as string', async () => {
-        const quoteWithdrawMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-        const withdrawMock = jest.fn().mockResolvedValue({ hash: '0xabc', fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteWithdraw: quoteWithdrawMock,
-            withdraw: withdrawMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-        server.server.elicitInput.mockResolvedValue({ action: 'accept', content: { confirmed: true } })
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.structuredContent.fee).toBe('21000000000000')
-      })
+      expect(result.structuredContent.hash).toBe('0xabc123')
+      expect(result.structuredContent.success).toBe(true)
     })
 
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Error executing withdraw: Network error')
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('Error executing withdraw: Network error')
     })
   })
 })

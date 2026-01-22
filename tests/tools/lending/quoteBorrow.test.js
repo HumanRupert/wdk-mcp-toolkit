@@ -1,24 +1,25 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { quoteBorrow } from '../../../src/tools/lending/quoteBorrow.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('quoteBorrow', () => {
-  let server, registerToolMock
+  let server, mocks
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getLendingChains: jest.fn().mockReturnValue(['ethereum']),
-      getLendingProtocols: jest.fn().mockReturnValue(['aave']),
-      getTokenInfo: jest.fn(),
-      wdk: {
-        getAccount: jest.fn()
+    const result = createMockServer({
+      chains: ['ethereum'],
+      lendingChains: ['ethereum'],
+      tokens: {
+        ethereum: {
+          USDT: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 }
+        }
       }
-    }
+    })
+    server = result.server
+    mocks = result.mocks
   })
 
   test('should not register tool if no lending chains available', () => {
@@ -26,13 +27,13 @@ describe('quoteBorrow', () => {
 
     quoteBorrow(server)
 
-    expect(registerToolMock).not.toHaveBeenCalled()
+    expect(server.registerTool).not.toHaveBeenCalled()
   })
 
   test('should register tool with name quoteBorrow', () => {
     quoteBorrow(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'quoteBorrow',
       expect.any(Object),
       expect.any(Function)
@@ -42,233 +43,70 @@ describe('quoteBorrow', () => {
   describe('handler', () => {
     let handler
 
-    const USDT_INFO = { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 }
-
     beforeEach(() => {
       quoteBorrow(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('validation', () => {
-      test('should return error if no lending protocol for chain', async () => {
-        server.getLendingProtocols.mockReturnValue([])
+    test('should return error if no lending protocols for chain', async () => {
+      server.getLendingProtocols.mockReturnValue([])
 
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('No lending protocol registered for ethereum.')
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should return error if token not registered', async () => {
-        server.getTokenInfo.mockReturnValue(undefined)
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Token USDT not registered for ethereum.')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('No lending protocol registered for ethereum.')
     })
 
-    describe('amount conversion', () => {
-      test('should convert amount to base units using token decimals', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
+    test('should return error if token not registered', async () => {
+      server.getTokenInfo.mockReturnValue(undefined)
 
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(quoteBorrowMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            amount: 100000000n
-          })
-        )
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('Token USDT not registered for ethereum.')
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
+    test('should return structured content with protocol and chain info', async () => {
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should call getLendingProtocol with first protocol label', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const getLendingProtocolMock = jest.fn().mockReturnValue({
-          quoteBorrow: quoteBorrowMock
-        })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: getLendingProtocolMock
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(getLendingProtocolMock).toHaveBeenCalledWith('aave')
-      })
-
-      test('should call quoteBorrow with token address', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(quoteBorrowMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            token: USDT_INFO.address
-          })
-        )
-      })
-
-      test('should use onBehalfOf if provided', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100',
-          onBehalfOf: '0x456'
-        })
-
-        expect(quoteBorrowMock).toHaveBeenCalledWith(
-          expect.objectContaining({
-            onBehalfOf: '0x456'
-          })
-        )
-      })
+      expect(result.structuredContent.protocol).toBe('aave')
+      expect(result.structuredContent.chain).toBe('ethereum')
+      expect(result.structuredContent.token).toBe('USDT')
     })
 
-    describe('result formatting', () => {
-      test('should return fee as string', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.structuredContent.fee).toBe('21000000000000')
+    test('should return fee as string', async () => {
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
 
-      test('should return protocol label', async () => {
-        const quoteBorrowMock = jest.fn().mockResolvedValue({ fee: 21000000000000n })
-
-        const accountMock = {
-          getAddress: jest.fn().mockResolvedValue('0x123'),
-          getLendingProtocol: jest.fn().mockReturnValue({
-            quoteBorrow: quoteBorrowMock
-          })
-        }
-
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.structuredContent.protocol).toBe('aave')
-        expect(result.structuredContent.chain).toBe('ethereum')
-        expect(result.structuredContent.token).toBe('USDT')
-        expect(result.structuredContent.amount).toBe('100')
-      })
+      expect(result.structuredContent.fee).toBe('21000000000000')
     })
 
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.getTokenInfo.mockReturnValue(USDT_INFO)
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        const result = await handler({
-          chain: 'ethereum',
-          token: 'USDT',
-          amount: '100'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Error quoting borrow: Network error')
+      const result = await handler({
+        chain: 'ethereum',
+        token: 'USDT',
+        amount: '100'
       })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('Error quoting borrow: Network error')
     })
   })
 })

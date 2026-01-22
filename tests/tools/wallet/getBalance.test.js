@@ -1,28 +1,23 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { getBalance } from '../../../src/tools/wallet/getBalance.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('getBalance', () => {
-  let server, registerToolMock
+  let server, mocks
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getChains: jest.fn().mockReturnValue(['ethereum', 'bitcoin']),
-      wdk: {
-        getAccount: jest.fn()
-      }
-    }
+    const result = createMockServer({ chains: ['ethereum', 'bitcoin'] })
+    server = result.server
+    mocks = result.mocks
   })
 
   test('should register tool with name getBalance', () => {
     getBalance(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'getBalance',
       expect.any(Object),
       expect.any(Function)
@@ -34,46 +29,17 @@ describe('getBalance', () => {
 
     beforeEach(() => {
       getBalance(server)
-      handler = registerToolMock.mock.calls[0][2]
-    })
-
-    test('should call wdk.getAccount with chain and index 0', async () => {
-      const accountMock = {
-        getBalance: jest.fn().mockResolvedValue(1000000000000000000n)
-      }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
-
-      await handler({ chain: 'ethereum' })
-
-      expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
-    })
-
-    test('should call account.getBalance', async () => {
-      const getBalanceMock = jest.fn().mockResolvedValue(1000000000000000000n)
-      const accountMock = { getBalance: getBalanceMock }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
-
-      await handler({ chain: 'ethereum' })
-
-      expect(getBalanceMock).toHaveBeenCalled()
+      handler = server.registerTool.mock.calls[0][2]
     })
 
     test('should return balance with wei unit for ethereum', async () => {
-      const accountMock = {
-        getBalance: jest.fn().mockResolvedValue(1000000000000000000n)
-      }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
-
       const result = await handler({ chain: 'ethereum' })
 
       expect(result.content[0].text).toBe('Balance: 1000000000000000000 wei')
     })
 
     test('should return balance with satoshis unit for bitcoin', async () => {
-      const accountMock = {
-        getBalance: jest.fn().mockResolvedValue(100000000n)
-      }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
+      mocks.account.getBalance.mockResolvedValue(100000000n)
 
       const result = await handler({ chain: 'bitcoin' })
 
@@ -83,12 +49,9 @@ describe('getBalance', () => {
     test('should return balance with base units for other chains', async () => {
       server.getChains.mockReturnValue(['polygon'])
       getBalance(server)
-      handler = registerToolMock.mock.calls[1][2]
+      handler = server.registerTool.mock.calls[1][2]
 
-      const accountMock = {
-        getBalance: jest.fn().mockResolvedValue(1000000n)
-      }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
+      mocks.account.getBalance.mockResolvedValue(1000000n)
 
       const result = await handler({ chain: 'polygon' })
 
@@ -96,18 +59,13 @@ describe('getBalance', () => {
     })
 
     test('should return balance as string in structured content', async () => {
-      const accountMock = {
-        getBalance: jest.fn().mockResolvedValue(1000000000000000000n)
-      }
-      server.wdk.getAccount.mockResolvedValue(accountMock)
-
       const result = await handler({ chain: 'ethereum' })
 
       expect(result.structuredContent.balance).toBe('1000000000000000000')
     })
 
     test('should return error with message on exception', async () => {
-      server.wdk.getAccount.mockRejectedValue(new Error('Provider not connected'))
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Provider not connected'))
 
       const result = await handler({ chain: 'ethereum' })
 

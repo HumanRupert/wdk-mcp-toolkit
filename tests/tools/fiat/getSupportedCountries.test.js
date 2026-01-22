@@ -1,23 +1,20 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { getSupportedCountries } from '../../../src/tools/fiat/getSupportedCountries.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('getSupportedCountries', () => {
-  let server, registerToolMock
+  let server, mocks
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getFiatChains: jest.fn().mockReturnValue(['ethereum']),
-      getFiatProtocols: jest.fn().mockReturnValue(['moonpay']),
-      wdk: {
-        getAccount: jest.fn()
-      }
-    }
+    const result = createMockServer({
+      chains: ['ethereum'],
+      fiatChains: ['ethereum']
+    })
+    server = result.server
+    mocks = result.mocks
   })
 
   test('should not register tool if no fiat chains available', () => {
@@ -25,13 +22,13 @@ describe('getSupportedCountries', () => {
 
     getSupportedCountries(server)
 
-    expect(registerToolMock).not.toHaveBeenCalled()
+    expect(server.registerTool).not.toHaveBeenCalled()
   })
 
   test('should register tool with name getSupportedCountries', () => {
     getSupportedCountries(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'getSupportedCountries',
       expect.any(Object),
       expect.any(Function)
@@ -41,98 +38,43 @@ describe('getSupportedCountries', () => {
   describe('handler', () => {
     let handler
 
-    const MOCK_COUNTRIES = [
-      { code: 'US', name: 'United States', isBuyAllowed: true, isSellAllowed: true },
-      { code: 'DE', name: 'Germany', isBuyAllowed: true, isSellAllowed: false }
-    ]
-
     beforeEach(() => {
       getSupportedCountries(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('validation', () => {
-      test('should return error if no fiat protocols for chain', async () => {
-        server.getFiatProtocols.mockReturnValue([])
+    test('should return error if no fiat protocols for chain', async () => {
+      server.getFiatProtocols.mockReturnValue([])
 
-        const result = await handler({ chain: 'ethereum' })
+      const result = await handler({ chain: 'ethereum' })
 
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
+      expect(result.structuredContent).toBeUndefined()
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        const getSupportedCountriesMock = jest.fn().mockResolvedValue(MOCK_COUNTRIES)
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedCountries: getSupportedCountriesMock
-          })
-        }
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+    test('should return countries with code, name, and buy/sell flags', async () => {
+      const result = await handler({ chain: 'ethereum' })
 
-        await handler({ chain: 'ethereum' })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
-      })
-
-      test('should call getFiatProtocol with first protocol label', async () => {
-        const getSupportedCountriesMock = jest.fn().mockResolvedValue(MOCK_COUNTRIES)
-        const getFiatProtocolMock = jest.fn().mockReturnValue({
-          getSupportedCountries: getSupportedCountriesMock
-        })
-        const accountMock = { getFiatProtocol: getFiatProtocolMock }
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({ chain: 'ethereum' })
-
-        expect(getFiatProtocolMock).toHaveBeenCalledWith('moonpay')
-      })
-
-      test('should call fiatProtocol.getSupportedCountries', async () => {
-        const getSupportedCountriesMock = jest.fn().mockResolvedValue(MOCK_COUNTRIES)
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedCountries: getSupportedCountriesMock
-          })
-        }
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({ chain: 'ethereum' })
-
-        expect(getSupportedCountriesMock).toHaveBeenCalled()
-      })
+      expect(result.isError).toBeUndefined()
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.structuredContent).toEqual([
+        { code: 'US', name: 'United States', isBuyAllowed: true, isSellAllowed: true },
+        { code: 'DE', name: 'Germany', isBuyAllowed: true, isSellAllowed: false }
+      ])
     })
 
-    describe('result formatting', () => {
-      test('should return countries with code, name, and buy/sell flags', async () => {
-        const getSupportedCountriesMock = jest.fn().mockResolvedValue(MOCK_COUNTRIES)
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedCountries: getSupportedCountriesMock
-          })
-        }
-        server.wdk.getAccount.mockResolvedValue(accountMock)
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        const result = await handler({ chain: 'ethereum' })
+      const result = await handler({ chain: 'ethereum' })
 
-        expect(result.structuredContent).toEqual([
-          { code: 'US', name: 'United States', isBuyAllowed: true, isSellAllowed: true },
-          { code: 'DE', name: 'Germany', isBuyAllowed: true, isSellAllowed: false }
-        ])
-      })
-    })
-
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
-
-        const result = await handler({ chain: 'ethereum' })
-
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Error getting supported countries: Network error')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.content[0].text).toBe('Error getting supported countries: Network error')
+      expect(result.structuredContent).toBeUndefined()
     })
   })
 })

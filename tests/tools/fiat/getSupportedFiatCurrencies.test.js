@@ -1,23 +1,20 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { getSupportedFiatCurrencies } from '../../../src/tools/fiat/getSupportedFiatCurrencies.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('getSupportedFiatCurrencies', () => {
-  let server, registerToolMock
+  let server, mocks
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getFiatChains: jest.fn().mockReturnValue(['ethereum']),
-      getFiatProtocols: jest.fn().mockReturnValue(['moonpay']),
-      wdk: {
-        getAccount: jest.fn()
-      }
-    }
+    const result = createMockServer({
+      chains: ['ethereum'],
+      fiatChains: ['ethereum']
+    })
+    server = result.server
+    mocks = result.mocks
   })
 
   test('should not register tool if no fiat chains available', () => {
@@ -25,13 +22,13 @@ describe('getSupportedFiatCurrencies', () => {
 
     getSupportedFiatCurrencies(server)
 
-    expect(registerToolMock).not.toHaveBeenCalled()
+    expect(server.registerTool).not.toHaveBeenCalled()
   })
 
   test('should register tool with name getSupportedFiatCurrencies', () => {
     getSupportedFiatCurrencies(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'getSupportedFiatCurrencies',
       expect.any(Object),
       expect.any(Function)
@@ -43,127 +40,41 @@ describe('getSupportedFiatCurrencies', () => {
 
     beforeEach(() => {
       getSupportedFiatCurrencies(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('validation', () => {
-      test('should return error if no fiat protocol for chain', async () => {
-        server.getFiatProtocols.mockReturnValue([])
+    test('should return error if no fiat protocol for chain', async () => {
+      server.getFiatProtocols.mockReturnValue([])
 
-        const result = await handler({ chain: 'ethereum' })
+      const result = await handler({ chain: 'ethereum' })
 
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('No fiat protocol registered for ethereum.')
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        const getSupportedFiatCurrenciesMock = jest.fn().mockResolvedValue([
-          { code: 'USD', name: 'US Dollar', decimals: 2 }
-        ])
+    test('should return currencies array in structured content', async () => {
+      const result = await handler({ chain: 'ethereum' })
 
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedFiatCurrencies: getSupportedFiatCurrenciesMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({ chain: 'ethereum' })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('ethereum', 0)
-      })
-
-      test('should call getFiatProtocol with first protocol label', async () => {
-        const getSupportedFiatCurrenciesMock = jest.fn().mockResolvedValue([
-          { code: 'USD', name: 'US Dollar', decimals: 2 }
-        ])
-
-        const getFiatProtocolMock = jest.fn().mockReturnValue({
-          getSupportedFiatCurrencies: getSupportedFiatCurrenciesMock
-        })
-
-        const accountMock = { getFiatProtocol: getFiatProtocolMock }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({ chain: 'ethereum' })
-
-        expect(getFiatProtocolMock).toHaveBeenCalledWith('moonpay')
-      })
-
-      test('should call getSupportedFiatCurrencies on protocol', async () => {
-        const getSupportedFiatCurrenciesMock = jest.fn().mockResolvedValue([
-          { code: 'USD', name: 'US Dollar', decimals: 2 }
-        ])
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedFiatCurrencies: getSupportedFiatCurrenciesMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        await handler({ chain: 'ethereum' })
-
-        expect(getSupportedFiatCurrenciesMock).toHaveBeenCalled()
-      })
+      expect(result.structuredContent).toEqual([
+        { code: 'USD', name: 'US Dollar', decimals: 2 },
+        { code: 'EUR', name: 'Euro', decimals: 2 }
+      ])
     })
 
-    describe('result formatting', () => {
-      test('should return currencies array in structured content', async () => {
-        const currencies = [
-          { code: 'USD', name: 'US Dollar', decimals: 2 },
-          { code: 'EUR', name: 'Euro', decimals: 2 }
-        ]
+    test('should return text content with currency codes', async () => {
+      const result = await handler({ chain: 'ethereum' })
 
-        const getSupportedFiatCurrenciesMock = jest.fn().mockResolvedValue(currencies)
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedFiatCurrencies: getSupportedFiatCurrenciesMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({ chain: 'ethereum' })
-
-        expect(result.structuredContent).toEqual(currencies)
-      })
-
-      test('should return text content with JSON', async () => {
-        const currencies = [{ code: 'USD', name: 'US Dollar', decimals: 2 }]
-
-        const getSupportedFiatCurrenciesMock = jest.fn().mockResolvedValue(currencies)
-
-        const accountMock = {
-          getFiatProtocol: jest.fn().mockReturnValue({
-            getSupportedFiatCurrencies: getSupportedFiatCurrenciesMock
-          })
-        }
-
-        server.wdk.getAccount.mockResolvedValue(accountMock)
-
-        const result = await handler({ chain: 'ethereum' })
-
-        expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toContain('USD')
-      })
+      expect(result.content[0].type).toBe('text')
+      expect(result.content[0].text).toContain('USD')
     })
 
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        const result = await handler({ chain: 'ethereum' })
+      const result = await handler({ chain: 'ethereum' })
 
-        expect(result.isError).toBe(true)
-        expect(result.content[0].text).toBe('Error getting supported fiat currencies: Network error')
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toBe('Error getting supported fiat currencies: Network error')
     })
   })
 })

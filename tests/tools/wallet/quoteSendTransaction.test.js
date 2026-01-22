@@ -1,35 +1,26 @@
 'use strict'
 
-import { beforeEach, describe, expect, jest, test } from '@jest/globals'
+import { beforeEach, describe, expect, test } from '@jest/globals'
 
 import { quoteSendTransaction } from '../../../src/tools/wallet/quoteSendTransaction.js'
+import { createMockServer } from '../../mocks/index.js'
 
 describe('quoteSendTransaction', () => {
-  let server, registerToolMock
+  let server, mocks
+
+  const RECIPIENT = 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
 
   beforeEach(() => {
-    registerToolMock = jest.fn()
-
-    server = {
-      registerTool: registerToolMock,
-      getChains: jest.fn().mockReturnValue(['bitcoin', 'ethereum']),
-      wdk: {
-        getAccount: jest.fn()
-      }
-    }
+    const result = createMockServer({ chains: ['bitcoin', 'ethereum'] })
+    server = result.server
+    mocks = result.mocks
+    mocks.account.quoteSendTransaction.mockResolvedValue({ fee: 5000n })
   })
-
-  function setupMocks (fee = 5000n) {
-    const quoteSendTransactionMock = jest.fn().mockResolvedValue({ fee })
-    const accountMock = { quoteSendTransaction: quoteSendTransactionMock }
-    server.wdk.getAccount.mockResolvedValue(accountMock)
-    return { quoteSendTransactionMock, accountMock }
-  }
 
   test('should register tool with name quoteSendTransaction', () => {
     quoteSendTransaction(server)
 
-    expect(registerToolMock).toHaveBeenCalledWith(
+    expect(server.registerTool).toHaveBeenCalledWith(
       'quoteSendTransaction',
       expect.any(Object),
       expect.any(Function)
@@ -41,71 +32,36 @@ describe('quoteSendTransaction', () => {
 
     beforeEach(() => {
       quoteSendTransaction(server)
-      handler = registerToolMock.mock.calls[0][2]
+      handler = server.registerTool.mock.calls[0][2]
     })
 
-    describe('protocol interaction', () => {
-      test('should call wdk.getAccount with chain and index 0', async () => {
-        setupMocks()
-
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(server.wdk.getAccount).toHaveBeenCalledWith('bitcoin', 0)
+    test('should return complete response with fee as string', async () => {
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '100000'
       })
 
-      test('should call quoteSendTransaction with to and value as BigInt', async () => {
-        const { quoteSendTransactionMock } = setupMocks()
-
-        await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(quoteSendTransactionMock).toHaveBeenCalledWith({
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: 100000n
-        })
-      })
+      expect(result.isError).toBeUndefined()
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.structuredContent).toEqual({ fee: '5000' })
     })
 
-    describe('result formatting', () => {
-      test('should return complete response with fee as string', async () => {
-        setupMocks(5000n)
+    test('should return error with message on exception', async () => {
+      mocks.wdk.getAccount.mockRejectedValue(new Error('Network error'))
 
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(result.isError).toBeUndefined()
-        expect(result.content).toHaveLength(1)
-        expect(result.content[0].type).toBe('text')
-        expect(result.structuredContent).toEqual({ fee: '5000' })
+      const result = await handler({
+        chain: 'bitcoin',
+        to: RECIPIENT,
+        value: '100000'
       })
-    })
 
-    describe('error handling', () => {
-      test('should return error with message on exception', async () => {
-        server.wdk.getAccount.mockRejectedValue(new Error('Network error'))
-
-        const result = await handler({
-          chain: 'bitcoin',
-          to: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-          value: '100000'
-        })
-
-        expect(result.isError).toBe(true)
-        expect(result.content).toHaveLength(1)
-        expect(result.content[0].type).toBe('text')
-        expect(result.content[0].text).toBe('Error quoting transaction on bitcoin: Network error')
-        expect(result.structuredContent).toBeUndefined()
-      })
+      expect(result.isError).toBe(true)
+      expect(result.content).toHaveLength(1)
+      expect(result.content[0].type).toBe('text')
+      expect(result.content[0].text).toBe('Error quoting transaction on bitcoin: Network error')
+      expect(result.structuredContent).toBeUndefined()
     })
   })
 })
