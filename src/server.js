@@ -22,7 +22,6 @@ import { WdkIndexerClient } from '@tetherto/wdk-indexer-http'
 /** @typedef {import('@tetherto/wdk-indexer-http').WdkIndexerConfig} WdkIndexerConfig */
 /** @typedef {typeof import('@tetherto/wdk-wallet').default} WalletManager */
 
-
 /**
  * @typedef {Object} TokenInfo
  * @property {string} address - Token contract address.
