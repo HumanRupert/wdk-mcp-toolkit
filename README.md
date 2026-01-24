@@ -27,7 +27,7 @@ This toolkit requires an MCP client that supports **tools**. For wallet write op
 | Feature | Required For |
 |---------|--------------|
 | Tools support | All operations (read and write) |
-| Elicitations support | Write operations (`sendTransaction`, `transfer`, `sign`) |
+| Elicitations support | Write operations (`sendTransaction`, `transfer`, `sign`, etc.) |
 
 See the [full list of MCP clients and their capabilities](https://modelcontextprotocol.io/clients).
 
@@ -877,6 +877,6 @@ For support, please open an issue on the GitHub repository.
 
 - **WDK Documentation**: [docs.wallet.tether.io](https://docs.wallet.tether.io)
 - **MCP SDK**: [github.com/modelcontextprotocol/typescript-sdk](https://github.com/modelcontextprotocol/typescript-sdk)
-- **MCP Specification**: [spec.modelcontextprotocol.io](https://spec.modelcontextprotocol.io)
+- **MCP Specification**: [modelcontextprotocol.io/specification/2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)
 - **MCP Clients**: [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients)
 - **VS Code Copilot MCP**: [Using MCP servers in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
