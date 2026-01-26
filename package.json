@@ -24,7 +24,11 @@
     "lint:fix": "standard --fix",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+    "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "setup": "node bin/setup.js"
+  },
+  "bin": {
+    "wdk-setup": "./bin/setup.js"
   },
   "exports": {
     ".": {
@@ -47,11 +51,19 @@
     ]
   },
   "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
     "@modelcontextprotocol/sdk": "1.23.0",
     "@tetherto/wdk": "^1.0.0-beta.4",
     "@tetherto/wdk-indexer-http": "github:tetherto/wdk-indexer-http",
     "@tetherto/wdk-pricing-bitfinex-http": "^1.0.0-beta.1",
+    "@tetherto/wdk-protocol-bridge-usdt0-evm": "^1.0.0-beta.2",
+    "@tetherto/wdk-protocol-fiat-moonpay": "^1.0.0-beta.1",
+    "@tetherto/wdk-protocol-lending-aave-evm": "^1.0.0-beta.3",
+    "@tetherto/wdk-protocol-swap-velora-evm": "^1.0.0-beta.4",
     "@tetherto/wdk-wallet": "^1.0.0-beta.6",
+    "@tetherto/wdk-wallet-btc": "^1.0.0-beta.4",
+    "@tetherto/wdk-wallet-evm": "^1.0.0-beta.4",
+    "picocolors": "^1.1.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

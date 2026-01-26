@@ -283,22 +283,33 @@ If a tool requires a capability that wasn't enabled, it will fail at runtime. Th
 
 You can use this MCP server with [VS Code GitHub Copilot Chat](https://code.visualstudio.com/docs/copilot/chat/mcp-servers).
 
-### Step 1: Clone the repository
+### Quick Setup (Recommended)
+
+The easiest way to get started is using the setup wizard:
 
 ```bash
 git clone https://github.com/tetherto/wdk-mcp-toolkit.git
 cd wdk-mcp-toolkit
 npm install
-
-# Install wallet and protocol modules for the example
-npm install @tetherto/wdk-wallet-btc @tetherto/wdk-wallet-evm
-npm install @tetherto/wdk-protocol-swap-velora-evm @tetherto/wdk-protocol-bridge-usdt0-evm
-npm install @tetherto/wdk-protocol-lending-aave-evm @tetherto/wdk-protocol-fiat-moonpay
+npm run setup
 ```
 
-### Step 2: Configure VS Code
+The wizard will guide you through:
 
-Create `.vscode/mcp.json` in the project root:
+1. **Seed phrase** (required) — Your BIP-39 wallet seed phrase
+2. **WDK Indexer API key** (optional) — For transaction history features ([get one here](https://wdk-api.tether.io/register))
+3. **MoonPay credentials** (optional) — For fiat on/off-ramp features ([MoonPay Dashboard](https://dashboard.moonpay.com/))
+
+After setup, the wizard will:
+- Install required dependencies automatically
+- Generate `.vscode/mcp.json` with your credentials
+- Open VS Code ready to start the server
+
+> **🔒 Security:** Your seed phrase is stored locally in `.vscode/mcp.json` which is gitignored. We recommend using a dedicated development wallet.
+
+### Manual Configuration
+
+If you prefer manual setup, create `.vscode/mcp.json` in the project root:
 
 ```json
 {
@@ -308,22 +319,32 @@ Create `.vscode/mcp.json` in the project root:
       "command": "node",
       "args": ["examples/basic/index.js"],
       "env": {
-        "WDK_SEED": "your wallet's seed phrase",
-        "WDK_INDEXER_API_KEY": "your indexer api key, you can obtain one here: https://docs.wallet.tether.io/tools/indexer-api/get-started"
+        "WDK_SEED": "your twelve word seed phrase here",
+        "WDK_INDEXER_API_KEY": "optional - get at https://wdk-api.tether.io/register",
+        "MOONPAY_API_KEY": "optional - get at https://dashboard.moonpay.com/",
+        "MOONPAY_SECRET_KEY": "optional - get at https://dashboard.moonpay.com/"
       }
     }
   }
 }
 ```
 
-Open the file in VS Code and click the **Start** button that appears above the server configuration.
+Then install the required dependencies:
 
-### Step 3: Use in Copilot Chat
+```bash
+npm install @tetherto/wdk-wallet-btc @tetherto/wdk-wallet-evm
+npm install @tetherto/wdk-protocol-swap-velora-evm @tetherto/wdk-protocol-bridge-usdt0-evm
+npm install @tetherto/wdk-protocol-lending-aave-evm @tetherto/wdk-protocol-fiat-moonpay
+```
 
-1. Open GitHub Copilot Chat in VS Code
-2. Select **Agent** mode from the dropdown
-3. Click the **Tools** button to verify your MCP server tools are available
-4. Start chatting:
+### Starting the Server
+
+1. Open `.vscode/mcp.json` in VS Code
+2. Click the **Start** button that appears above the server configuration
+3. Open GitHub Copilot Chat and select **Agent** mode
+4. Click **Tools** to verify the MCP server tools are available
+
+### Example Conversations
 
 ```
 You: What's my ethereum address?
@@ -335,14 +356,23 @@ Copilot: Your ETH balance is 1.5 ETH
 You: What's the current price of BTC?
 Copilot: The current price of BTC is $98,450.00 USD
 
-You: How much USDT do I have on ethereum?
-Copilot: Your USDT balance on Ethereum is 1,000.00 USDT
-
 You: Send 1 USDT to vitalik.eth
-Copilot: I'll transfer 1 USDT to vitalik.eth (0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045).
+Copilot: I'll transfer 1 USDT to vitalik.eth.
          [Requests approval via elicitation]
          Transaction sent! Hash: 0xabc123...
 ```
+
+### Optional Capabilities
+
+The server conditionally enables capabilities based on which environment variables are set:
+
+| Capability | Environment Variables | Tools |
+|------------|----------------------|-------|
+| Wallet, Pricing, Swap, Bridge, Lending | `WDK_SEED` (required) | Always enabled |
+| Transaction History | `WDK_INDEXER_API_KEY` | `INDEXER_TOOLS` |
+| Fiat On/Off-Ramp | `MOONPAY_API_KEY` + `MOONPAY_SECRET_KEY` | `FIAT_TOOLS` |
+
+Re-run `npm run setup` to change your configuration or enable additional capabilities.
 
 ## 📚 API Reference
 
