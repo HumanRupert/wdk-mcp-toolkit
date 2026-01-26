@@ -189,7 +189,7 @@ async function collectMoonPayCredentials () {
 
 async function installDependencies () {
   console.log(pc.dim('──────────────────────────────────────────────────────────'))
-  process.stdout.write(pc.cyan('⏳ Installing required dependencies...'))
+  console.log(pc.cyan('⏳ Installing dependencies...'))
 
   const deps = [
     '@tetherto/wdk-wallet-btc',
@@ -200,14 +200,16 @@ async function installDependencies () {
     '@tetherto/wdk-protocol-fiat-moonpay'
   ]
 
-  try {
-    await exec(`npm install ${deps.join(' ')}`, { cwd: process.cwd() })
-    console.log(pc.green(' ✓'))
-  } catch (error) {
-    console.log(pc.red(' ✗'))
-    console.log(pc.red(`Failed to install dependencies: ${error.message}`))
-    console.log(pc.yellow('You may need to install them manually:'))
-    console.log(pc.dim(`npm install ${deps.join(' ')}`))
+  for (let i = 0; i < deps.length; i++) {
+    const dep = deps[i]
+    process.stdout.write(`  [${i + 1}/${deps.length}] ${dep}...`)
+    try {
+      await exec(`npm install ${dep}`, { cwd: process.cwd() })
+      console.log(pc.green(' ✓'))
+    } catch (error) {
+      console.log(pc.red(' ✗'))
+      console.log(pc.red(`    Failed: ${error.message}`))
+    }
   }
 }
 
