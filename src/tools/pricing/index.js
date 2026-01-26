@@ -29,8 +29,6 @@ export const PRICING_TOOLS = [
   getHistoricalPrice
 ]
 
-export { PRICING_TOOLS as pricingTools }
-
 export {
   getCurrentPrice,
   getHistoricalPrice

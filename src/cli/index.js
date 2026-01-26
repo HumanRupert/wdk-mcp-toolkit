@@ -22,36 +22,25 @@ import { promisify } from 'node:util'
 
 const exec = promisify(execCallback)
 
-/**
- * Runs the WDK MCP Toolkit setup wizard.
- */
 export async function runSetupWizard () {
   printBanner()
 
-  // Check prerequisites
   await checkGitignore()
 
-  // Collect credentials
   const config = {}
 
-  // 1. Seed phrase (required)
   config.seed = await collectSeedPhrase()
 
-  // 2. Indexer API key (optional)
   config.indexerApiKey = await collectIndexerApiKey()
 
-  // 3. MoonPay credentials (optional)
   const moonpay = await collectMoonPayCredentials()
   config.moonPayApiKey = moonpay.apiKey
   config.moonPaySecretKey = moonpay.secretKey
 
-  // Install dependencies
   await installDependencies()
 
-  // Generate configuration
   await generateConfig(config)
 
-  // Open VS Code
   await openVsCode()
 
   printSuccessMessage(config)
@@ -86,7 +75,6 @@ async function checkGitignore () {
       }
     }
   } catch {
-    // .gitignore doesn't exist, create it
     await fs.writeFile(gitignorePath, '.vscode\n')
     console.log(pc.green('Created .gitignore with .vscode entry\n'))
   }
@@ -229,7 +217,6 @@ async function generateConfig (config) {
     }
   }
 
-  // Add optional environment variables
   if (config.indexerApiKey) {
     mcpConfig.servers.wdk.env.WDK_INDEXER_API_KEY = config.indexerApiKey
   }
@@ -239,15 +226,12 @@ async function generateConfig (config) {
     mcpConfig.servers.wdk.env.MOONPAY_SECRET_KEY = config.moonPaySecretKey
   }
 
-  // Create .vscode directory if it doesn't exist
   const vscodeDir = path.join(process.cwd(), '.vscode')
   await fs.mkdir(vscodeDir, { recursive: true })
 
-  // Write configuration
   const configPath = path.join(vscodeDir, 'mcp.json')
   await fs.writeFile(configPath, JSON.stringify(mcpConfig, null, 2) + '\n')
 
-  // Set restrictive permissions on Unix systems
   if (process.platform !== 'win32') {
     await fs.chmod(configPath, 0o600)
   }
