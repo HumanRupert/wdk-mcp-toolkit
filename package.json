@@ -25,10 +25,10 @@
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "setup": "node bin/setup.js"
+    "setup": "node bin/index.js setup"
   },
   "bin": {
-    "wdk-setup": "./bin/setup.js"
+    "wdk-mcp-toolkit": "./bin/index.js"
   },
   "exports": {
     ".": {
