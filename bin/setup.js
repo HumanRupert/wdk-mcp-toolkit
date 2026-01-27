@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Copyright 2025 Tether Operations Limited
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -389,7 +388,4 @@ function printSuccessMessage (config) {
   console.log()
 }
 
-runSetupWizard().catch((error) => {
-  console.error('Setup failed:', error.message)
-  process.exit(1)
-})
+export { runSetupWizard }
