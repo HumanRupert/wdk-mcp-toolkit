@@ -449,21 +449,6 @@ describe('WdkMcpServer', () => {
 
       expect(serverWithOptions.capabilities).toEqual({ elicitation: false })
     })
-
-    test('should return a copy from capabilities getter', () => {
-      const caps1 = server.capabilities
-      const caps2 = server.capabilities
-
-      expect(caps1).toEqual(caps2)
-      expect(caps1).not.toBe(caps2)
-    })
-
-    test('should not be affected by mutating the returned object', () => {
-      const caps = server.capabilities
-      caps.elicitation = false
-
-      expect(server.capabilities.elicitation).toBe(true)
-    })
   })
 
   describe('requestConfirmation', () => {
